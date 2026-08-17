@@ -1,0 +1,25 @@
+{
+  "name": "@sammer/core",
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@sammer/shared": "workspace:*",
+    "better-sqlite3": "^11.3.0",
+    "gray-matter": "^4.0.3",
+    "openai": "^4.67.0",
+    "sqlite-vec": "^0.1.6",
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11"
+  }
+}
