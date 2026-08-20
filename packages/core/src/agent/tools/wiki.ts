@@ -81,7 +81,7 @@ export function buildWikiTools(deps: WikiToolDeps): Tool[] {
       }),
       run: async (input) => {
         const page = await deps.wiki.savePage(input);
-        return `Wrote page "${page.slug}".`;
+        return `Wrote page "${page.metadata.slug}".`;
       },
     }),
   ];

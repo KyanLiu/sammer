@@ -16,23 +16,24 @@ export class Indexer {
   }
 
   upsertPage(page: Page): void {
+    const { id, slug, title, category, summary, updated } = page.metadata;
     const tx = this.db.transaction(() => {
       // Clear any prior rows for this page — by id AND by slug (slug may have changed).
-      this.removePage(page.id);
-      this.db.prepare("DELETE FROM pages_fts WHERE slug = ?").run(page.slug);
-      this.db.prepare("DELETE FROM links WHERE src_slug = ?").run(page.slug);
-      this.db.prepare("DELETE FROM pages WHERE slug = ?").run(page.slug);
+      this.removePage(id);
+      this.db.prepare("DELETE FROM pages_fts WHERE slug = ?").run(slug);
+      this.db.prepare("DELETE FROM links WHERE src_slug = ?").run(slug);
+      this.db.prepare("DELETE FROM pages WHERE slug = ?").run(slug);
 
       this.db
         .prepare(
           "INSERT INTO pages (id, slug, title, category, summary, updated) VALUES (?, ?, ?, ?, ?, ?)",
         )
-        .run(page.id, page.slug, page.title, page.category, page.summary, page.updated);
+        .run(id, slug, title, category, summary, updated);
       this.db
         .prepare("INSERT INTO pages_fts (slug, title, summary, body) VALUES (?, ?, ?, ?)")
-        .run(page.slug, page.title, page.summary, page.body);
+        .run(slug, title, summary, page.body);
       const insLink = this.db.prepare("INSERT INTO links (src_slug, dst_slug) VALUES (?, ?)");
-      for (const dst of page.links) insLink.run(page.slug, dst);
+      for (const dst of page.links) insLink.run(slug, dst);
     });
     tx();
   }

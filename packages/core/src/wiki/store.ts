@@ -37,7 +37,7 @@ export class WikiStore {
   }
 
   async write(page: Page): Promise<void> {
-    await writeFile(this.path(page.slug), serializePage(page), "utf8");
+    await writeFile(this.path(page.metadata.slug), serializePage(page), "utf8");
   }
 
   async remove(slug: string): Promise<void> {

@@ -1,19 +1,51 @@
-export interface PageMetadata {
+export type Slug = string
+
+export interface RecordMetadata {
   id: string;
   title: string;
-  slug: string;
-  category: string; // single primary bucket — drives the section in index.md
-  tags: string[]; // cross-cutting labels for search/filtering (many per page)
-  summary: string; // one-line summary shown in index.md
+  category: string;
+  tags: string[];
+  summary: string;
   created: string; // ISO
   updated: string; // ISO
-  sources: string[]; // raw-blob refs (populated in a later milestone)
 }
+// metadata for each page
+export interface PageMetadata extends RecordMetadata {
+  slug: Slug; // the .md file name
+  sources: SourceMetadata[]; // metadata of the sources this page was curated from
+}
+// Page is derived and created from sources, can reference other pages 
+export interface Page {
+  metadata: PageMetadata;
+  body: string; // markdown body
+  links: Slug[]; // slugs referenced via [[..]] in body
+}
+// Source types
+export type SourceKind = "text" | "conversation" | "image" | "pdf" | "audio" | "video";
+// metadata for the raw sources
+export interface SourceMetadata extends RecordMetadata {
+  kind: SourceKind;
+  origin: string;
+  externalId?: string;
+  url?: string;
+}
+export interface Source<T extends SourceMetadata = SourceMetadata> {
+// Raw Source
+  metadata: T;
+  fileName: string;
+}
+export interface TextSourceMetadata extends SourceMetadata {
+  kind: "text" | "conversation";
+}
+export type TextSource = Source<TextSourceMetadata>;
 
-export interface Page extends PageMetadata {
-  body: string; // markdown body (no metadata)
-  links: string[]; // slugs referenced via [[..]] in body
+export interface ImageSourceMetadata extends SourceMetadata {
+  kind: "image";
+  width?: number;
+  height?: number;
+  mime?: string;
 }
+export type ImageSource = Source<ImageSourceMetadata>;
 
 export interface Chunk {
   pageId: string;

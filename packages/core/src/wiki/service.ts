@@ -31,15 +31,17 @@ export class WikiService {
     const now = new Date().toISOString();
 
     const page: Page = {
-      id: existing?.id ?? slug,
-      title: input.title,
-      slug,
-      category: input.category ?? existing?.category ?? "Uncategorized",
-      tags: input.tags ?? existing?.tags ?? [],
-      summary: input.summary || existing?.summary || "",
-      created: existing?.created ?? now,
-      updated: now,
-      sources: existing?.sources ?? [],
+      metadata: {
+        id: existing?.metadata.id ?? slug,
+        title: input.title,
+        slug,
+        category: input.category ?? existing?.metadata.category ?? "Uncategorized",
+        tags: input.tags ?? existing?.metadata.tags ?? [],
+        summary: input.summary || existing?.metadata.summary || "",
+        created: existing?.metadata.created ?? now,
+        updated: now,
+        sources: existing?.metadata.sources ?? [],
+      },
       body: input.body,
       links: extractLinks(input.body),
     };

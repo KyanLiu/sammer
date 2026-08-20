@@ -88,17 +88,17 @@ export class Engine {
     for (const slug of await this.store.list()) {
       const page = await this.store.read(slug);
       if (!page) continue;
-      const bucket = byCategory.get(page.category);
+      const bucket = byCategory.get(page.metadata.category);
       if (bucket) bucket.push(page);
-      else byCategory.set(page.category, [page]);
+      else byCategory.set(page.metadata.category, [page]);
     }
 
     const sections = [...byCategory.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([category, pages]) => {
         const lines = pages
-          .sort((a, b) => a.title.localeCompare(b.title))
-          .map((p) => `- [[${p.slug}]] — ${p.summary || p.title}`);
+          .sort((a, b) => a.metadata.title.localeCompare(b.metadata.title))
+          .map(({ metadata: m }) => `- [[${m.slug}]] — ${m.summary || m.title}`);
         return `## ${category}\n\n${lines.join("\n")}\n`;
       });
 
