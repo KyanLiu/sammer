@@ -21,7 +21,8 @@ export interface Page {
   links: Slug[]; // slugs referenced via [[..]] in body
 }
 // Source types
-export type SourceKind = "text" | "conversation" | "image" | "pdf" | "audio" | "video";
+export const SOURCE_KINDS = ["text", "conversation", "image", "pdf", "audio", "video"] as const;
+export type SourceKind = (typeof SOURCE_KINDS)[number];
 // metadata for the raw sources
 export interface SourceMetadata extends RecordMetadata {
   kind: SourceKind;

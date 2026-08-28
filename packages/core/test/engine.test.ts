@@ -32,7 +32,7 @@ function scriptedLlm(script: Step[]): LlmClient {
 async function makeCfg(): Promise<Config> {
   return {
     dataDir: await mkdtemp(join(tmpdir(), "sammer-engine-")),
-    llm: { baseUrl: "x", apiKey: "x", chatModel: "m", embedModel: "e", embedDim: 3 },
+    llm: { provider: "openai", baseUrl: "x", apiKey: "x", chatModel: "m", embedModel: "e", embedDim: 3 },
   };
 }
 
@@ -125,7 +125,7 @@ describe("Engine", () => {
     const second = await Engine.create(cfg, { llm: scriptedLlm([{ text: "unused" }]) });
 
     expect(await second.listPages()).toEqual(["cats"]);
-    expect((await second.getPage("cats"))?.category).toBe("Animals");
+    expect((await second.getPage("cats"))?.metadata.category).toBe("Animals");
     expect((await second.search("feline")).map((h) => h.slug)).toContain("cats");
     second.close();
   });

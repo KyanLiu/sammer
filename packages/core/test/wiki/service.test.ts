@@ -23,19 +23,19 @@ describe("WikiService.savePage", () => {
   it("fills in the defaults a caller leaves out", async () => {
     const page = await wiki.savePage({ title: "Cats", body: "Meow.", summary: "About cats" });
 
-    expect(page.slug).toBe("cats");
-    expect(page.id).toBe("cats");
-    expect(page.category).toBe("Uncategorized");
-    expect(page.tags).toEqual([]);
-    expect(page.sources).toEqual([]);
+    expect(page.metadata.slug).toBe("cats");
+    expect(page.metadata.id).toBe("cats");
+    expect(page.metadata.category).toBe("Uncategorized");
+    expect(page.metadata.tags).toEqual([]);
+    expect(page.metadata.sources).toEqual([]);
   });
 
   it("derives the slug from the title, or uses the one given", async () => {
-    expect((await wiki.savePage({ title: "Big Boxes", body: "b", summary: "s" })).slug).toBe(
+    expect((await wiki.savePage({ title: "Big Boxes", body: "b", summary: "s" })).metadata.slug).toBe(
       "big-boxes",
     );
     expect(
-      (await wiki.savePage({ title: "Big Boxes", body: "b", summary: "s", slug: "Crates" })).slug,
+      (await wiki.savePage({ title: "Big Boxes", body: "b", summary: "s", slug: "Crates" })).metadata.slug,
     ).toBe("crates");
   });
 
@@ -55,9 +55,9 @@ describe("WikiService.savePage", () => {
 
     const second = await wiki.savePage({ title: "Cats", body: "v2", summary: "s" });
 
-    expect(second.id).toBe(first.id);
-    expect(second.created).toBe(first.created);
-    expect(Date.parse(second.updated)).toBeGreaterThan(Date.parse(first.created));
+    expect(second.metadata.id).toBe(first.metadata.id);
+    expect(second.metadata.created).toBe(first.metadata.created);
+    expect(Date.parse(second.metadata.updated)).toBeGreaterThan(Date.parse(first.metadata.created));
   });
 
   it("carries forward fields the caller omits on an update", async () => {
@@ -71,8 +71,8 @@ describe("WikiService.savePage", () => {
 
     const updated = await wiki.savePage({ title: "Cats", body: "v2", summary: "About cats" });
 
-    expect(updated.category).toBe("Animals");
-    expect(updated.tags).toEqual(["pets"]);
+    expect(updated.metadata.category).toBe("Animals");
+    expect(updated.metadata.tags).toEqual(["pets"]);
   });
 
   it("makes the page searchable, not just written to disk", async () => {

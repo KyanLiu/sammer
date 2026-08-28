@@ -4,6 +4,7 @@ export interface ChatRequest {
   messages: ModelMessage[];
   tools?: ToolDef[];
   temperature?: number;
+  maxTokens?: number;
 }
 
 export interface ChatResponse {
@@ -13,5 +14,8 @@ export interface ChatResponse {
 
 export interface LlmClient {
   chat(req: ChatRequest): Promise<ChatResponse>;
+}
+
+export interface EmbeddingClient {
   embed(texts: string[]): Promise<number[][]>;
 }

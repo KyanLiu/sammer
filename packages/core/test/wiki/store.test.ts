@@ -17,7 +17,7 @@ describe("WikiStore", () => {
     const page = parsePage("cats", "---\ntitle: Cats\nslug: cats\n---\nMeow [[boxes]].");
     await store.write(page);
     const read = await store.read("cats");
-    expect(read?.title).toBe("Cats");
+    expect(read?.metadata.title).toBe("Cats");
     expect(await store.list()).toEqual(["cats"]);
     await store.remove("cats");
     expect(await store.read("cats")).toBeNull();
@@ -33,9 +33,9 @@ describe("WikiStore", () => {
     const page = await store.read("dogs");
     const { mtime } = await stat(file);
 
-    expect(page?.updated).toBe(mtime.toISOString());
-    expect(page?.created).not.toBe(new Date(0).toISOString());
-    expect(Date.parse(page!.created)).toBeLessThanOrEqual(mtime.getTime());
+    expect(page?.metadata.updated).toBe(mtime.toISOString());
+    expect(page?.metadata.created).not.toBe(new Date(0).toISOString());
+    expect(Date.parse(page!.metadata.created)).toBeLessThanOrEqual(mtime.getTime());
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -94,8 +94,8 @@ describe("WikiStore", () => {
 
     const page = await store.read("birds");
 
-    expect(page?.created).toBe(declared);
-    expect(page?.updated).toBe(declared);
+    expect(page?.metadata.created).toBe(declared);
+    expect(page?.metadata.updated).toBe(declared);
     await rm(dir, { recursive: true, force: true });
   });
 });

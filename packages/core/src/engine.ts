@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type Database from "better-sqlite3";
 import type { Config, Page, SearchHit } from "@sammer/shared";
 import type { LlmClient } from "./llm/client.js";
-import { OpenAiLlmClient } from "./llm/openai.js";
+import { createLlmClient } from "./llm/factory.js";
 import { WikiStore } from "./wiki/store.js";
 import { WikiService } from "./wiki/service.js";
 import { openIndexDb } from "./index/db.js";
@@ -30,7 +30,7 @@ export class Engine {
   ) {}
 
   static async create(cfg: Config, opts: EngineOptions = {}): Promise<Engine> {
-    const client = opts.llm ?? new OpenAiLlmClient(cfg.llm);
+    const client = opts.llm ?? createLlmClient(cfg.llm);
     const store = new WikiStore(join(cfg.dataDir, "wiki"));
     await store.init();
 

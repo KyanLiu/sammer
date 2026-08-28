@@ -17,8 +17,8 @@ describe("page format", () => {
       "",
     ].join("\n");
     const page = parsePage("cats", md);
-    expect(page.title).toBe("Cats");
-    expect(page.tags).toEqual(["animals"]);
+    expect(page.metadata.title).toBe("Cats");
+    expect(page.metadata.tags).toEqual(["animals"]);
     expect(page.links).toEqual(["boxes"]);
     expect(page.body.trim()).toBe("Cats like [[boxes]].");
     const out = parsePage("cats", serializePage(page));
@@ -36,8 +36,8 @@ describe("page format", () => {
       "body",
     ].join("\n");
     const page = parsePage("t", md);
-    expect(page.created).toBe("2026-03-04T05:06:07.000Z");
-    expect(page.updated).toBe("2026-03-04T05:06:07.000Z");
+    expect(page.metadata.created).toBe("2026-03-04T05:06:07.000Z");
+    expect(page.metadata.updated).toBe("2026-03-04T05:06:07.000Z");
   });
 
   it("parses category and summary, applying defaults", () => {
@@ -45,10 +45,10 @@ describe("page format", () => {
       "p",
       "---\ntitle: P\nslug: p\ncategory: Animals\nsummary: About cats\n---\nbody",
     );
-    expect(withVals.category).toBe("Animals");
-    expect(withVals.summary).toBe("About cats");
+    expect(withVals.metadata.category).toBe("Animals");
+    expect(withVals.metadata.summary).toBe("About cats");
     const defaults = parsePage("p", "---\ntitle: P\nslug: p\n---\nbody");
-    expect(defaults.category).toBe("Uncategorized");
-    expect(defaults.summary).toBe("");
+    expect(defaults.metadata.category).toBe("Uncategorized");
+    expect(defaults.metadata.summary).toBe("");
   });
 });

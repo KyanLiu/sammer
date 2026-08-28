@@ -1,5 +1,5 @@
 import matter from "gray-matter";
-import { EPOCH, toIso, type Page, type Slug, type SourceMetadata } from "@sammer/shared";
+import { EPOCH, PageMetadataSchema, type Page, type Slug } from "@sammer/shared";
 import { extractLinks } from "./links.js";
 
 // A page hand-added to the vault carries no `created`/`updated`. Callers that
@@ -13,19 +13,15 @@ export interface PageDates {
 export function parsePage(slug: Slug, markdown: string, dates: PageDates = {}): Page {
   const { data, content } = matter(markdown);
   const body = content.replace(/^\n+/, "");
+  const fm = PageMetadataSchema.parse(data);
   return {
-    // Built in the order it is written back out, so a round-trip leaves the
-    // frontmatter's field order untouched.
     metadata: {
-      id: String(data.id ?? slug),
-      title: String(data.title ?? slug),
-      slug: String(data.slug ?? slug),
-      category: String(data.category ?? "Uncategorized"),
-      tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
-      summary: String(data.summary ?? ""),
-      created: toIso(data.created, dates.created ?? EPOCH),
-      updated: toIso(data.updated, dates.updated ?? EPOCH),
-      sources: Array.isArray(data.sources) ? (data.sources as SourceMetadata[]) : [],
+      ...fm,
+      id: fm.id || slug,
+      title: fm.title || slug,
+      slug: fm.slug || slug,
+      created: fm.created || dates.created || EPOCH,
+      updated: fm.updated || dates.updated || EPOCH,
     },
     body,
     links: extractLinks(body),

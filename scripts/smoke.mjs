@@ -65,10 +65,13 @@ if (!process.env.LLM_API_KEY) {
 const cfg = loadConfig({ ...process.env, DATA_DIR: process.env.DATA_DIR ?? "./data-smoke" });
 const wikiDir = join(cfg.dataDir, "wiki");
 
+// baseUrl and chatModel are provider defaults when unset, resolved in the adapter.
+const orDefault = (v) => v ?? "(provider default)";
 console.log(`sammer smoke test
-  model:   ${cfg.llm.chatModel}
-  baseUrl: ${cfg.llm.baseUrl}
-  dataDir: ${cfg.dataDir}`);
+  provider: ${cfg.llm.provider}
+  model:    ${orDefault(cfg.llm.chatModel)}
+  baseUrl:  ${orDefault(cfg.llm.baseUrl)}
+  dataDir:  ${cfg.dataDir}`);
 
 // A fresh vault each run, so a pass means the flow works from nothing — not
 // that a page left over from the last run happened to answer the question.

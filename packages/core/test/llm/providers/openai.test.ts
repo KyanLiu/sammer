@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { OpenAiLlmClient } from "../../src/llm/openai.js";
+import { OpenAiLlmClient } from "../../../src/llm/providers/openai.js";
 
 describe("OpenAiLlmClient", () => {
   it("maps an OpenAI chat completion into ChatResponse with tool calls", async () => {
@@ -28,7 +28,7 @@ describe("OpenAiLlmClient", () => {
       },
     };
     const client = new OpenAiLlmClient(
-      { baseUrl: "x", apiKey: "x", chatModel: "m", embedModel: "e", embedDim: 2 },
+      { provider: "openai", baseUrl: "x", apiKey: "x", chatModel: "m", embedModel: "e", embedDim: 2 },
       fakeOpenAI as any,
     );
     const res = await client.chat({ messages: [{ role: "user", content: "hi" }] });

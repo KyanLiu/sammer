@@ -32,9 +32,9 @@ describe("wiki tools", () => {
     expect(wrote).toMatch(/cats/);
 
     const page = await store.read("cats");
-    expect(page?.title).toBe("Cats");
-    expect(page?.category).toBe("Animals");
-    expect(page?.summary).toBe("Everything about cats");
+    expect(page?.metadata.title).toBe("Cats");
+    expect(page?.metadata.category).toBe("Animals");
+    expect(page?.metadata.summary).toBe("Everything about cats");
 
     expect(await registry.invoke("search_wiki", { query: "cat" })).toMatch(/cats/);
     expect(await registry.invoke("read_page", { slug: "cats" })).toMatch(/Cats are great/);

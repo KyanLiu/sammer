@@ -1,9 +1,12 @@
 import OpenAI from "openai";
 import type { Config, ModelMessage, ToolCall } from "@sammer/shared";
-import type { LlmClient, ChatRequest, ChatResponse } from "./client.ts";
+import type { ChatRequest, ChatResponse, EmbeddingClient, LlmClient } from "../client.js";
+
+const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
+const DEFAULT_TEMPERATURE = 0.2;
 
 /** Translate sammer's ModelMessage[] into the OpenAI chat message wire format. */
-function toOpenAIMessages(messages: ModelMessage[]): any[] {
+function toOpenAIMessages(messages: ModelMessage[]): OpenAI.ChatCompletionMessageParam[] {
   return messages.map((m) => {
     if (m.role === "assistant") {
       return {
@@ -11,7 +14,7 @@ function toOpenAIMessages(messages: ModelMessage[]): any[] {
         content: m.content,
         tool_calls: m.toolCalls?.map((t) => ({
           id: t.id,
-          type: "function",
+          type: "function" as const,
           function: { name: t.name, arguments: JSON.stringify(t.arguments) },
         })),
       };
@@ -23,8 +26,7 @@ function toOpenAIMessages(messages: ModelMessage[]): any[] {
   });
 }
 
-/** OpenAI-compatible adapter implementing the LlmClient contract. */
-export class OpenAiLlmClient implements LlmClient {
+export class OpenAiLlmClient implements LlmClient, EmbeddingClient {
   constructor(
     private readonly cfg: Config["llm"],
     private readonly client: OpenAI = new OpenAI({
@@ -35,19 +37,20 @@ export class OpenAiLlmClient implements LlmClient {
 
   async chat(req: ChatRequest): Promise<ChatResponse> {
     const completion = await this.client.chat.completions.create({
-      model: this.cfg.chatModel,
-      temperature: req.temperature ?? 0.2,
+      model: this.cfg.chatModel ?? DEFAULT_CHAT_MODEL,
+      temperature: req.temperature ?? DEFAULT_TEMPERATURE,
       messages: toOpenAIMessages(req.messages),
+      ...(req.maxTokens === undefined ? {} : { max_tokens: req.maxTokens }),
       tools: req.tools?.map((t) => ({
-        type: "function",
+        type: "function" as const,
         function: { name: t.name, description: t.description, parameters: t.parameters },
       })),
     });
     const msg = completion.choices[0]!.message;
-    const toolCalls: ToolCall[] = (msg.tool_calls ?? []).map((tc: any) => ({
+    const toolCalls: ToolCall[] = (msg.tool_calls ?? []).map((tc) => ({
       id: tc.id,
       name: tc.function.name,
-      arguments: JSON.parse(tc.function.arguments || "{}"),
+      arguments: JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>,
     }));
     return { content: msg.content ?? null, toolCalls };
   }
@@ -57,6 +60,6 @@ export class OpenAiLlmClient implements LlmClient {
       model: this.cfg.embedModel,
       input: texts,
     });
-    return res.data.map((d: any) => d.embedding as number[]);
+    return res.data.map((d) => d.embedding);
   }
 }
