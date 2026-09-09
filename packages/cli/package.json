@@ -1,0 +1,13 @@
+{
+  "name": "@sammer/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { "sammer": "./dist/main.js" },
+  "scripts": { "build": "tsc -b" },
+  "dependencies": {
+    "@sammer/core": "workspace:*",
+    "@sammer/shared": "workspace:*"
+  }
+}
