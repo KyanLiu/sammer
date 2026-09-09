@@ -1,18 +1,12 @@
 import type { ToolDef } from "@sammer/shared";
 
 export interface ToolContext {
-  // Lets a tool abandon in-flight work (a network call in an integration) when
-  // the caller goes away. Local tools ignore it.
   signal?: AbortSignal;
-  // Set by the assist loop. Read-only callers are refused mutating tools even
-  // if the model asks for one by name.
   readOnly?: boolean;
 }
 
 export interface Tool {
   def: ToolDef;
-  // Whether running this tool changes state. The assist loop is never offered
-  // tools that do, so answering a question cannot rewrite the wiki.
   mutates: boolean;
   run(args: unknown, ctx: ToolContext): Promise<string>;
 }
@@ -38,9 +32,6 @@ export class ToolRegistry {
       .map((tool) => tool.def);
   }
 
-  // The single execution path. Every outcome — success, bad name, refused tool,
-  // bad arguments, a thrown error — comes back as a string the agent loop can
-  // feed to the model, so one failing tool never takes down the turn.
   async invoke(name: string, args: unknown, ctx: ToolContext = {}): Promise<string> {
     const tool = this.tools.get(name);
     if (!tool) return `Error: unknown tool "${name}".`;
@@ -54,3 +45,19 @@ export class ToolRegistry {
     }
   }
 }
+
+// build Registry from tools
+export function registryOf(tools: Tool[]): ToolRegistry {
+  const registry = new ToolRegistry();
+  for (const tool of tools) registry.register(tool);
+  return registry;
+}
+
+// Tool predicate
+export type ToolFilter = (tool: Tool) => boolean;
+
+export function toolsMatching(tools: Tool[], allowed: ToolFilter): Tool[] {
+  return tools.filter(allowed);
+}
+
+export const readOnlyTools = (tools: Tool[]): Tool[] => toolsMatching(tools, (tool) => !tool.mutates);

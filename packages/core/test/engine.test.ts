@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Engine } from "../src/engine.js";
 import { defineTool } from "../src/agent/define-tool.js";
-import type { LlmClient } from "../src/llm/client.js";
+import type { LlmClient, ChatRequest } from "../src/llm/client.js";
 import type { Config } from "@sammer/shared";
 
 type Step = { tool?: [string, Record<string, unknown>]; text?: string };
@@ -29,6 +29,20 @@ function scriptedLlm(script: Step[]): LlmClient {
   };
 }
 
+// Wraps scriptedLlm and records the requests, so a test can assert on which
+// tools the agent was actually offered.
+function recordingLlm(script: Step[]): LlmClient & { seen: ChatRequest[] } {
+  const inner = scriptedLlm(script);
+  const seen: ChatRequest[] = [];
+  return {
+    seen,
+    chat: async (req) => {
+      seen.push(structuredClone(req));
+      return inner.chat(req);
+    },
+  };
+}
+
 async function makeCfg(): Promise<Config> {
   return {
     dataDir: await mkdtemp(join(tmpdir(), "sammer-engine-")),
@@ -39,7 +53,7 @@ async function makeCfg(): Promise<Config> {
 const writesCats: Step[] = [
   {
     tool: [
-      "write_page",
+      "write_wiki_page",
       {
         title: "Cats",
         body: "A cat is a small feline. Cats nap a lot.",
@@ -57,12 +71,12 @@ describe("Engine", () => {
       llm: scriptedLlm([
         ...writesCats,
         { tool: ["search_wiki", { query: "cat" }] },
-        { tool: ["read_page", { slug: "cats" }] },
+        { tool: ["read_wiki_page", { slug: "cats" }] },
         { text: "A cat is a small feline. [[cats]]" },
       ]),
     });
 
-    expect(await engine.ingest("Cats are small felines that nap a lot.")).toBe("Stored.");
+    expect((await engine.ingest("Cats are small felines that nap a lot.")).summary).toBe("Stored.");
     expect(await engine.listPages()).toEqual(["cats"]);
 
     expect(await engine.ask("what is a cat?")).toMatch(/feline/i);
@@ -100,7 +114,7 @@ describe("Engine", () => {
       llm: scriptedLlm([
         {
           tool: [
-            "write_page",
+            "write_wiki_page",
             { title: "Boxes", body: "A box holds a cat.", category: "Storage", summary: "Boxes" },
           ],
         },
@@ -135,7 +149,7 @@ describe("Engine", () => {
     // The model tries to write while merely answering a question.
     const engine = await Engine.create(cfg, {
       llm: scriptedLlm([
-        { tool: ["write_page", { title: "Sneaky", body: "b", summary: "s" }] },
+        { tool: ["write_wiki_page", { title: "Sneaky", body: "b", summary: "s" }] },
         { text: "could not" },
       ]),
     });
@@ -165,6 +179,169 @@ describe("Engine", () => {
     });
 
     expect(await engine.ask("what did they say about cats?")).toMatch(/twice/);
+    engine.close();
+  });
+});
+
+describe("Engine.run", () => {
+  it("answers a question by reading the wiki", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, { llm: scriptedLlm(writesCats) });
+    await engine.ingest("cats");
+    engine.close();
+
+    const second = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        { tool: ["search_wiki", { query: "cat" }] },
+        { tool: ["read_wiki_page", { slug: "cats" }] },
+        { text: "A cat is a small feline. [[cats]]" },
+      ]),
+    });
+
+    expect(await second.run("what is a cat?")).toMatch(/feline/i);
+    second.close();
+  });
+
+  it("curates through the curate tool and regenerates the catalog and log", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        { tool: ["curate", { material: "On 2026-08-29 the user adopted a cat." }] },
+        {
+          tool: [
+            "write_wiki_page",
+            { title: "Cats", body: "Adopted 2026-08-29.", category: "Animals", summary: "Cats" },
+          ],
+        },
+        { text: "Wrote the cats page." },
+        { text: "Saved that to [[cats]]." },
+      ]),
+    });
+
+    const answer = await engine.run("today I adopted a cat, remember that");
+
+    expect(answer).toMatch(/saved/i);
+    expect(await engine.listPages()).toEqual(["cats"]);
+
+    const index = await readFile(join(cfg.dataDir, "wiki", "index.md"), "utf8");
+    expect(index).toContain("[[cats]]");
+    const log = await readFile(join(cfg.dataDir, "wiki", "log.md"), "utf8");
+    expect(log).toContain("Wrote the cats page.");
+    engine.close();
+  });
+
+  it("never offers the conversation agent a write tool directly", async () => {
+    const llm = recordingLlm([{ text: "hello" }]);
+    const engine = await Engine.create(await makeCfg(), { llm });
+
+    await engine.run("hi");
+
+    const offered = llm.seen[0]!.tools!.map((t) => t.name);
+    expect(offered).toContain("curate");
+    expect(offered).not.toContain("write_wiki_page");
+    engine.close();
+  });
+
+  it("remembers prior turns across calls", async () => {
+    const llm = recordingLlm([{ text: "Noted." }, { text: "Blue." }]);
+    const engine = await Engine.create(await makeCfg(), { llm });
+
+    await engine.run("my name is kyan");
+    await engine.run("and my favourite colour?");
+
+    expect(llm.seen[1]!.messages).toContainEqual({ role: "user", content: "my name is kyan" });
+    expect(llm.seen[1]!.messages.at(-1)).toEqual({
+      role: "user",
+      content: "and my favourite colour?",
+    });
+    engine.close();
+  });
+
+  it("answers without tools when the wiki is not involved", async () => {
+    const engine = await Engine.create(await makeCfg(), {
+      llm: scriptedLlm([{ text: "Hello." }]),
+    });
+
+    expect(await engine.run("hi there")).toBe("Hello.");
+    expect(await engine.listPages()).toEqual([]);
+    engine.close();
+  });
+  it("withholds the curate tool from a read-only request", async () => {
+    const llm = recordingLlm([{ text: "I cannot write." }]);
+    const engine = await Engine.create(await makeCfg(), { llm });
+
+    await engine.run("save this for me", { readOnly: true });
+
+    const offered = llm.seen[0]!.tools!.map((t) => t.name);
+    expect(offered).not.toContain("curate");
+    expect(offered).not.toContain("write_wiki_page");
+    expect(offered).toContain("read_wiki_page");
+    engine.close();
+  });
+
+  it("refuses curate to a read-only request that names it anyway", async () => {
+    const cfg = await makeCfg();
+    const llm = recordingLlm([
+      { tool: ["curate", { material: "sneak this in" }] },
+      { text: "I could not save that." },
+    ]);
+    const engine = await Engine.create(cfg, { llm });
+
+    await engine.run("save this for me", { readOnly: true });
+
+    const toolMsg = llm.seen[1]!.messages.find((m) => m.role === "tool");
+    expect(toolMsg!.content).toMatch(/unknown tool|not available/i);
+    expect(await engine.listPages()).toEqual([]);
+    engine.close();
+  });
+
+  it("ask() is exactly a read-only run", async () => {
+    const viaAsk = recordingLlm([{ text: "a" }]);
+    const askEngine = await Engine.create(await makeCfg(), { llm: viaAsk });
+    await askEngine.ask("what is a cat?");
+    askEngine.close();
+
+    const viaRun = recordingLlm([{ text: "a" }]);
+    const runEngine = await Engine.create(await makeCfg(), { llm: viaRun });
+    await runEngine.run("what is a cat?", { readOnly: true });
+    runEngine.close();
+
+    expect(viaAsk.seen[0]!.messages).toEqual(viaRun.seen[0]!.messages);
+    expect(viaAsk.seen[0]!.tools).toEqual(viaRun.seen[0]!.tools);
+  });
+
+  it("ask() still writes nothing when the model reaches for curate", async () => {
+    const engine = await Engine.create(await makeCfg(), {
+      llm: scriptedLlm([
+        { tool: ["curate", { material: "sneak this in" }] },
+        { text: "could not" },
+      ]),
+    });
+
+    await engine.ask("what is a cat?");
+
+    expect(await engine.listPages()).toEqual([]);
+    engine.close();
+  });
+  it("passes a maxSteps override down to the loop", async () => {
+    // Calls a tool for as long as it is offered any, so the only thing that can
+    // stop it is the step cap.
+    const seen: ChatRequest[] = [];
+    const llm: LlmClient = {
+      chat: async (req) => {
+        seen.push(structuredClone(req));
+        return req.tools?.length
+          ? { content: null, toolCalls: [{ id: "c", name: "read_wiki_index", arguments: {} }] }
+          : { content: "Out of steps.", toolCalls: [] };
+      },
+    };
+    const engine = await Engine.create(await makeCfg(), { llm });
+
+    await engine.run("go", { maxSteps: 2 });
+
+    // 2 tool-calling rounds, then the no-tools wrap-up call.
+    expect(seen).toHaveLength(3);
+    expect(seen[2]!.tools ?? []).toEqual([]);
     engine.close();
   });
 });

@@ -113,7 +113,7 @@ await stage("ask", "the read loop navigates the wiki and answers from it", async
   // Not asserted, only reported: the prompt asks for [[slug]] citations, and
   // whether the model obliges is a prompt-quality signal, not a wiring failure.
   const cited = /\[\[.+\]\]/.test(answer);
-  return `${answer}\n\ncites pages: ${cited ? "yes" : "no — worth a look at ASSIST_SYSTEM"}`;
+  return `${answer}\n\ncites pages: ${cited ? "yes" : "no — worth a look at CONVERSATION_SYSTEM"}`;
 });
 
 console.log(
