@@ -77,3 +77,36 @@ export type ModelMessage =
   | { role: "system" | "user"; content: string }
   | { role: "assistant"; content: string | null; toolCalls?: ToolCall[] }
   | { role: "tool"; toolCallId: string; content: string };
+
+export type AgentEvent =
+  | { type: "agent-start"; timestamp: number; runId: string; parentRunId?: string; agentId: string }
+  | {
+      type: "agent-end";
+      timestamp: number;
+      runId: string;
+      agentId: string;
+      durationMs: number;
+      output?: string;
+      error?: string;
+    }
+  | {
+      type: "tool-start";
+      timestamp: number;
+      runId: string;
+      agentId: string;
+      iteration: number;
+      callId: string;
+      name: string;
+      args: Record<string, unknown>;
+    }
+  | {
+      type: "tool-end";
+      timestamp: number;
+      runId: string;
+      agentId: string;
+      iteration: number;
+      callId: string;
+      name: string;
+      result: string;
+      durationMs: number;
+    };

@@ -17,6 +17,7 @@ import { buildToolIndex } from "./agent/tools/index.js";
 import { buildAgents } from "./agent/build.js";
 import { CURATOR_ID, type CuratorAgent } from "./agent/curator/index.js";
 import { ORCHESTRATOR_ID } from "./agent/orchestrator/index.js";
+import { AgentTelemetry } from "./agent/telemetry.js";
 
 export interface EngineOptions {
   llm?: LlmClient;
@@ -53,6 +54,7 @@ export class Engine {
     private readonly db: Database.Database,
     private readonly agents: Map<string, Agent>,
     private readonly curator: CuratorAgent,
+    readonly telemetry: AgentTelemetry,
   ) {}
 
   private agent(id: string): Agent {
@@ -75,15 +77,16 @@ export class Engine {
 
     const toolIndex = buildToolIndex({ wikiDeps: { wiki, db } });
     const custom = opts.tools ?? [];
+    const telemetry = new AgentTelemetry();
 
-    const { curator, orchestrator } = buildAgents({ llm, toolIndex, custom, store, raw });
+    const { curator, orchestrator } = buildAgents({ llm, toolIndex, custom, store, raw, telemetry });
 
     const agents = new Map<string, Agent>([
       [CURATOR_ID, curator],
       [ORCHESTRATOR_ID, orchestrator],
     ]);
 
-    const engine = new Engine(store, raw, wiki, db, agents, curator);
+    const engine = new Engine(store, raw, wiki, db, agents, curator, telemetry);
     // The markdown is the source of truth; the index is derived, so it is
     // rebuilt on every startup rather than trusted to be current.
     await engine.reindex();

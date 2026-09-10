@@ -4,6 +4,8 @@ import { Agent, asTool } from "../../src/agent/agent.js";
 import { Memory } from "../../src/agent/memory.js";
 import { ToolRegistry, type Tool } from "../../src/agent/registry.js";
 import type { LlmClient, ChatRequest, ChatResponse } from "../../src/llm/client.js";
+import type { AgentEvent } from "@sammer/shared";
+import { AgentTelemetry } from "../../src/agent/telemetry.js";
 
 // Agent is abstract only because CuratorAgent/OrchestratorAgent fix their own
 // system prompt; there is no behavior left to override, so an empty subclass
@@ -47,7 +49,7 @@ describe("Agent.run", () => {
       { content: "Cats are great.", toolCalls: [] },
     ]);
 
-    const answer = await new TestAgent({ llm, system: "sys", registry }).run("tell me about cats");
+    const answer = await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry }).run("tell me about cats");
 
     expect(answer).toBe("Cats are great.");
     expect(llm.seen).toHaveLength(2);
@@ -70,6 +72,43 @@ describe("Agent.run", () => {
     });
   });
 
+  it("emits telemetry events for each tool call and the run itself", async () => {
+    const registry = new ToolRegistry();
+    registry.register(toolNamed("search_wiki", async (args) => `RESULT for ${args.query}`));
+
+    const llm = scriptedLlm([
+      { content: null, toolCalls: [{ id: "c1", name: "search_wiki", arguments: { query: "cats" } }] },
+      { content: "Cats are great.", toolCalls: [] },
+    ]);
+
+    const telemetry = new AgentTelemetry();
+    const events: AgentEvent[] = [];
+    telemetry.subscribe((e) => events.push(e));
+
+    await new TestAgent({ id: "test-agent", llm, system: "sys", registry, telemetry }).run(
+      "tell me about cats",
+    );
+
+    expect(events.map((e) => e.type)).toEqual(["agent-start", "tool-start", "tool-end", "agent-end"]);
+    expect(events[0]).toMatchObject({ agentId: "test-agent", parentRunId: undefined });
+    expect(events[1]).toMatchObject({
+      agentId: "test-agent",
+      iteration: 1,
+      name: "search_wiki",
+      args: { query: "cats" },
+    });
+    expect(events[2]).toMatchObject({
+      agentId: "test-agent",
+      iteration: 1,
+      name: "search_wiki",
+      result: "RESULT for cats",
+    });
+    expect(events[3]).toMatchObject({ agentId: "test-agent", output: "Cats are great." });
+
+    const runId = events[0]!.runId;
+    expect(events.every((e) => e.runId === runId)).toBe(true);
+  });
+
   it("makes the model answer from what it has when it runs out of iterations", async () => {
     const registry = new ToolRegistry();
     registry.register(toolNamed("search_wiki", async () => "loop"));
@@ -87,7 +126,7 @@ describe("Agent.run", () => {
       embed: async () => [[]],
     };
 
-    const answer = await new TestAgent({ llm, system: "s", registry }).run("u", { maxIterations: 3 });
+    const answer = await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u", { maxIterations: 3 });
 
     expect(answer).toBe("Partial, from what I gathered.");
     // The wrap-up is not another iteration; the loop still ran exactly maxIterations times.
@@ -108,7 +147,7 @@ describe("Agent.run", () => {
       embed: async () => [[]],
     };
 
-    const answer = await new TestAgent({ llm, system: "s", registry }).run("u", { maxIterations: 3 });
+    const answer = await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u", { maxIterations: 3 });
 
     // 3 tool-calling rounds, plus the final no-tools call.
     expect(calls).toBe(4);
@@ -128,7 +167,7 @@ describe("Agent.run", () => {
       { content: "I could not search just now.", toolCalls: [] },
     ]);
 
-    const answer = await new TestAgent({ llm, system: "s", registry }).run("u");
+    const answer = await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u");
 
     expect(answer).toBe("I could not search just now.");
     const toolMsg = llm.seen[1]!.messages.find((m) => m.role === "tool");
@@ -143,7 +182,7 @@ describe("Agent.run", () => {
       { content: "That tool does not exist.", toolCalls: [] },
     ]);
 
-    const answer = await new TestAgent({ llm, system: "s", registry }).run("u");
+    const answer = await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u");
 
     expect(answer).toBe("That tool does not exist.");
     const toolMsg = llm.seen[1]!.messages.find((m) => m.role === "tool");
@@ -157,7 +196,7 @@ describe("Agent.run", () => {
 
     const llm = scriptedLlm([{ content: "answer", toolCalls: [] }]);
 
-    await new TestAgent({ llm, system: "s", registry }).run("u", { readOnly: true });
+    await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u", { readOnly: true });
 
     expect(llm.seen[0]!.tools!.map((t) => t.name)).toEqual(["read_page"]);
   });
@@ -171,7 +210,7 @@ describe("Agent.run", () => {
       { content: "could not write", toolCalls: [] },
     ]);
 
-    await new TestAgent({ llm, system: "s", registry }).run("u", { readOnly: true });
+    await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u", { readOnly: true });
 
     const toolMsg = llm.seen[1]!.messages.find((m) => m.role === "tool");
     expect(toolMsg).toMatchObject({ content: expect.stringMatching(/not available/i) });
@@ -192,7 +231,7 @@ describe("Agent.run", () => {
       { content: "done", toolCalls: [] },
     ]);
 
-    await new TestAgent({ llm, system: "s", registry }).run("u");
+    await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "s", registry }).run("u");
 
     const toolMsgs = llm.seen[1]!.messages.filter((m) => m.role === "tool");
     expect(toolMsgs).toEqual([
@@ -205,7 +244,7 @@ describe("Agent.run", () => {
     const registry = new ToolRegistry();
     const llm = scriptedLlm([{ content: "Blue.", toolCalls: [] }]);
 
-    await new TestAgent({ llm, system: "sys", registry }).run("and my favourite colour?", {
+    await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry }).run("and my favourite colour?", {
       context: [
         { role: "user", content: "my name is kyan" },
         { role: "assistant", content: "Noted." },
@@ -224,7 +263,7 @@ describe("Agent.run", () => {
     const registry = new ToolRegistry();
     const llm = scriptedLlm([{ content: "hi", toolCalls: [] }]);
 
-    await new TestAgent({ llm, system: "sys", registry }).run("hello");
+    await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry }).run("hello");
 
     expect(llm.seen[0]!.messages).toEqual([
       { role: "system", content: "sys" },
@@ -238,7 +277,7 @@ describe("Agent.run", () => {
       { content: "Noted.", toolCalls: [] },
       { content: "Blue.", toolCalls: [] },
     ]);
-    const agent = new TestAgent({ llm, system: "sys", registry, memory: new Memory() });
+    const agent = new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry, memory: new Memory() });
 
     await agent.run("my name is kyan");
     await agent.run("and my favourite colour?");
@@ -257,7 +296,7 @@ describe("Agent.run", () => {
       { content: "Noted.", toolCalls: [] },
       { content: "Blue.", toolCalls: [] },
     ]);
-    const agent = new TestAgent({ llm, system: "sys", registry, memory: new Memory() });
+    const agent = new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry, memory: new Memory() });
 
     await agent.run("my name is kyan");
     await agent.run("what's the weather like?", {
@@ -280,7 +319,7 @@ describe("Agent.run", () => {
       { content: "Who?", toolCalls: [] },
     ]);
     const memory = new Memory();
-    const agent = new TestAgent({ llm, system: "sys", registry, memory });
+    const agent = new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry, memory });
 
     await agent.run("my name is kyan");
     memory.clear();

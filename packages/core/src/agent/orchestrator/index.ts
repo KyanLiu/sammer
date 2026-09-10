@@ -3,6 +3,7 @@ import { Agent } from "../agent.js";
 import type { Memory } from "../memory.js";
 import { registryOf, type Tool, type ToolRegistry } from "../registry.js";
 import { resolveTools } from "../tools/index.js";
+import type { AgentTelemetry } from "../telemetry.js";
 import { ORCHESTRATOR_TOOL_NAMES } from "./orchestratorTools.js";
 
 export const ORCHESTRATOR_ID = "orchestrator";
@@ -33,8 +34,8 @@ Be concise.
 `;
 
 export class OrchestratorAgent extends Agent {
-  constructor(llm: LlmClient, registry: ToolRegistry, memory: Memory) {
-    super({ llm, system: ORCHESTRATOR_SYSTEM, registry, memory });
+  constructor(llm: LlmClient, registry: ToolRegistry, memory: Memory, telemetry: AgentTelemetry) {
+    super({ id: ORCHESTRATOR_ID, llm, system: ORCHESTRATOR_SYSTEM, registry, memory, telemetry });
   }
 }
 
@@ -43,7 +44,8 @@ export function buildOrchestrator(
   index: Record<string, Tool>,
   custom: Tool[],
   memory: Memory,
+  telemetry: AgentTelemetry,
 ): OrchestratorAgent {
   const tools = [...resolveTools(ORCHESTRATOR_TOOL_NAMES, index), ...custom];
-  return new OrchestratorAgent(llm, registryOf(tools), memory);
+  return new OrchestratorAgent(llm, registryOf(tools), memory, telemetry);
 }

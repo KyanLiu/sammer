@@ -7,6 +7,7 @@ import { ingestCommand, UsageError } from "./commands/ingest.js";
 import { chatCommand } from "./commands/chat.js";
 import { formatHits, formatPages } from "./commands/search.js";
 import { USAGE } from "./usage.js";
+import { createTraceListener } from "./eventFormatter.js";
 
 const INGEST_MAX_ITERATIONS = 16;
 const TITLE_LENGTH = 80;
@@ -39,6 +40,7 @@ async function main(argv: string[]): Promise<number> {
   loadDotEnv();
   const cfg = loadConfig();
   const engine = await Engine.create(cfg);
+  engine.telemetry.subscribe(createTraceListener((line) => console.log(line)));
 
   try {
     switch (command) {

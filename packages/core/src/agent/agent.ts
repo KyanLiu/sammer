@@ -4,6 +4,7 @@ import type { LlmClient } from "../llm/client.js";
 import type { ToolRegistry, Tool, ToolContext } from "./registry.js";
 import { defineTool } from "./define-tool.js";
 import type { Memory } from "./memory.js";
+import type { AgentTelemetry } from "./telemetry.js";
 
 export interface BridgeSpec<S extends z.ZodType> {
   name: string;
@@ -29,9 +30,11 @@ const DEFAULT_MAX_ITERATIONS = 8;
 
 // agent initialization config
 export interface AgentConfig {
+  id: string;
   llm: LlmClient;
   system: string;
   registry: ToolRegistry;
+  telemetry: AgentTelemetry;
   memory?: Memory;
   maxIterations?: number;
 }
@@ -45,21 +48,29 @@ export interface AgentRunOptions {
 
 // Abstracted agent class
 export abstract class Agent {
+  private readonly id: string;
   private readonly llm: LlmClient;
   private readonly system: string;
   private readonly registry: ToolRegistry;
+  private readonly telemetry: AgentTelemetry;
   private readonly memory: Memory | undefined;
   private readonly maxIterations: number;
 
   constructor(config: AgentConfig) {
+    this.id = config.id;
     this.llm = config.llm;
     this.system = config.system;
     this.registry = config.registry;
+    this.telemetry = config.telemetry;
     this.memory = config.memory;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   }
 
   async run(user: string, opts: AgentRunOptions = {}): Promise<string> {
+    return this.telemetry.run(this.id, () => this.runOnce(user, opts));
+  }
+
+  private async runOnce(user: string, opts: AgentRunOptions): Promise<string> {
     const readOnly = opts.readOnly;
     const maxIterations = opts.maxIterations ?? this.maxIterations;
     const ctx: ToolContext = { readOnly, signal: opts.signal };
@@ -85,7 +96,9 @@ export abstract class Agent {
       messages.push({ role: "assistant", content: res.content, toolCalls: res.toolCalls });
       for (const call of res.toolCalls) {
         // invoke never throws: a failed tool is a message the model can react to.
-        const content = await this.registry.invoke(call.name, call.arguments, ctx);
+        const content = await this.telemetry.tool(this.id, iterations, call, () =>
+          this.registry.invoke(call.name, call.arguments, ctx),
+        );
         messages.push({ role: "tool", toolCallId: call.id, content });
       }
     }

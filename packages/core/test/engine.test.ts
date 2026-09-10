@@ -7,6 +7,7 @@ import { Engine } from "../src/engine.js";
 import { defineTool } from "../src/agent/define-tool.js";
 import type { LlmClient, ChatRequest } from "../src/llm/client.js";
 import type { Config } from "@sammer/shared";
+import type { AgentEvent } from "@sammer/shared";
 
 type Step = { tool?: [string, Record<string, unknown>]; text?: string };
 
@@ -227,6 +228,33 @@ describe("Engine.run", () => {
     expect(index).toContain("[[cats]]");
     const log = await readFile(join(cfg.dataDir, "wiki", "log.md"), "utf8");
     expect(log).toContain("Wrote the cats page.");
+    engine.close();
+  });
+
+  it("links the curator's run to the orchestrator's via telemetry", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        { tool: ["curate", { material: "On 2026-08-29 the user adopted a cat." }] },
+        {
+          tool: [
+            "write_wiki_page",
+            { title: "Cats", body: "Adopted 2026-08-29.", category: "Animals", summary: "Cats" },
+          ],
+        },
+        { text: "Wrote the cats page." },
+        { text: "Saved that to [[cats]]." },
+      ]),
+    });
+
+    const events: AgentEvent[] = [];
+    engine.telemetry.subscribe((e) => events.push(e));
+
+    await engine.run("today I adopted a cat, remember that");
+
+    const starts = events.filter((e) => e.type === "agent-start");
+    expect(starts.map((e) => e.agentId)).toEqual(["orchestrator", "curator"]);
+    expect(starts[1]).toMatchObject({ parentRunId: starts[0]!.runId });
     engine.close();
   });
 

@@ -4,6 +4,7 @@ import type { WikiStore } from "../../wiki/store.js";
 import { Agent, type AgentRunOptions } from "../agent.js";
 import { registryOf, type Tool, type ToolRegistry } from "../registry.js";
 import { resolveTools } from "../tools/index.js";
+import type { AgentTelemetry } from "../telemetry.js";
 import { CURATOR_TOOL_NAMES } from "./curatorTools.js";
 
 export const CURATOR_ID = "curator";
@@ -20,7 +21,10 @@ Rules to follow:
 1. When new information conflicts with what a page already says, rewrite the relevant prose
    to state the current facts instead of appending an update section. The page should hold the
    current state of a topic, written so any agent reading it later finds the current facts
-   directly, without needing to cross-reference dates against older material.
+   directly, without needing to cross-reference dates against older material. Write the new
+   fact affirmatively, not as a mirror of how the update was phrased to you — new information
+   often arrives as a negation of the old state, but the page should state what is true now
+   first, with the prior state kept only as dated history if it is worth keeping.
 2. Use date references whenever possible: the current facts should reflect the most recent
    date available. Older information can stay, but must be clearly marked as outdated rather
    than presented as current.
@@ -46,8 +50,9 @@ export class CuratorAgent extends Agent {
     llm: LlmClient,
     registry: ToolRegistry,
     private readonly store: WikiStore,
+    telemetry: AgentTelemetry,
   ) {
-    super({ llm, system: CURATION_SYSTEM, registry });
+    super({ id: CURATOR_ID, llm, system: CURATION_SYSTEM, registry, telemetry });
   }
 
   override async run(user: string, opts?: AgentRunOptions): Promise<string> {
@@ -93,7 +98,8 @@ export function buildCurator(
   toolIndex: Record<string, Tool>,
   custom: Tool[],
   store: WikiStore,
+  telemetry: AgentTelemetry,
 ): CuratorAgent {
   const tools = [...resolveTools(CURATOR_TOOL_NAMES, toolIndex), ...custom];
-  return new CuratorAgent(llm, registryOf(tools), store);
+  return new CuratorAgent(llm, registryOf(tools), store, telemetry);
 }

@@ -6,6 +6,7 @@ import { buildCurator, type CuratorAgent } from "./curator/index.js";
 import { Memory } from "./memory.js";
 import { buildOrchestrator, type OrchestratorAgent } from "./orchestrator/index.js";
 import { readOnlyTools, type Tool } from "./registry.js";
+import type { AgentTelemetry } from "./telemetry.js";
 
 export interface BuildAgentsDeps {
   llm: LlmClient;
@@ -13,6 +14,7 @@ export interface BuildAgentsDeps {
   custom: Tool[];
   store: WikiStore;
   raw: RawStore;
+  telemetry: AgentTelemetry;
 }
 
 export interface Agents {
@@ -21,7 +23,7 @@ export interface Agents {
 }
 
 export function buildAgents(deps: BuildAgentsDeps): Agents {
-  const curator = buildCurator(deps.llm, deps.toolIndex, deps.custom, deps.store);
+  const curator = buildCurator(deps.llm, deps.toolIndex, deps.custom, deps.store, deps.telemetry);
   const curate = buildCurateTool(curator, deps.raw);
 
   const orchestrator = buildOrchestrator(
@@ -29,6 +31,7 @@ export function buildAgents(deps: BuildAgentsDeps): Agents {
     { ...deps.toolIndex, curate },
     readOnlyTools(deps.custom),
     new Memory(),
+    deps.telemetry,
   );
 
   return { curator, orchestrator };
