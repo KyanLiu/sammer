@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "main": "./dist/main.js",
   "scripts": {
     "build": "tsc -b",
@@ -11,7 +13,9 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.1",
     "@fastify/multipart": "^10.1.0",
+    "@fastify/rate-limit": "^11.2.0",
     "@fastify/sse": "^0.6.0",
     "@fastify/type-provider-typebox": "^5.2.0",
     "@sammer/core": "workspace:*",
