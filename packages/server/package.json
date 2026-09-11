@@ -1,0 +1,22 @@
+{
+  "name": "@sammer/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/multipart": "^10.1.0",
+    "@fastify/sse": "^0.6.0",
+    "@fastify/type-provider-typebox": "^5.2.0",
+    "@sammer/core": "workspace:*",
+    "@sammer/shared": "workspace:*",
+    "@sinclair/typebox": "^0.34.0",
+    "fastify": "^5.12.0"
+  }
+}
