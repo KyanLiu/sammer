@@ -5,10 +5,12 @@
   "engines": { "node": ">=22" },
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && pnpm --filter @sammer/web build",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b && pnpm --filter @sammer/web check",
+    "start:server": "pnpm --filter @sammer/server start",
+    "dev:web": "pnpm --filter @sammer/web dev"
   },
   "devDependencies": {
     "@sammer/cli": "workspace:*",

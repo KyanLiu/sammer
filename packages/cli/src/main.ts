@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
-import { loadConfig } from "@sammer/shared";
+import { loadConfig, loadDotEnv } from "@sammer/shared";
 import { Engine } from "@sammer/core";
-import { loadDotEnv } from "./env.js";
 import { ingestCommand, UsageError } from "./commands/ingest.js";
 import { chatCommand } from "./commands/chat.js";
 import { formatHits, formatPages } from "./commands/search.js";

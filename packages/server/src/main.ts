@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-import { loadConfig } from "@sammer/shared";
+import { loadConfig, loadDotEnv } from "@sammer/shared";
 import { Engine } from "@sammer/core";
-import { loadDotEnv } from "./env.js";
 import { buildServer } from "./app.js";
 
 async function main(): Promise<void> {

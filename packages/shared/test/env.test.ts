@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadDotEnv } from "../src/env.js";
+import { findWorkspaceRoot, loadDotEnv } from "../src/env.js";
 
 const VARS = ["SAMMER_TEST_KEY", "SAMMER_TEST_OTHER"];
 
@@ -46,5 +46,22 @@ describe("loadDotEnv", () => {
     await mkdir(join(dir, ".env"));
 
     expect(() => loadDotEnv(dir)).toThrow();
+  });
+});
+
+describe("findWorkspaceRoot", () => {
+  it("walks up from a nested directory to the one with pnpm-workspace.yaml", async () => {
+    const root = await dirWith();
+    await writeFile(join(root, "pnpm-workspace.yaml"), "packages:\n  - \"packages/*\"\n", "utf8");
+    const nested = join(root, "packages", "server", "dist");
+    await mkdir(nested, { recursive: true });
+
+    expect(findWorkspaceRoot(nested)).toBe(root);
+  });
+
+  it("throws when no pnpm-workspace.yaml is found above the starting directory", async () => {
+    const dir = await dirWith();
+
+    expect(() => findWorkspaceRoot(dir)).toThrow();
   });
 });
