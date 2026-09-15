@@ -19,10 +19,10 @@ export const askRoute: FastifyPluginAsyncTypebox<{ deps: Asker }> = async (app, 
     await reply.sse.send({ event: "ack", data: null });
     try {
       const answer = await deps.ask(question, { maxSteps });
-      await reply.sse.send({ event: "answer", data: { answer } });
+      await reply.sse.send({ event: "answer", data: { answer } }).catch(() => {});
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await reply.sse.send({ event: "error", data: { message } });
+      await reply.sse.send({ event: "error", data: { message } }).catch(() => {});
     }
   });
 };
