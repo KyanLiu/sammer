@@ -9,8 +9,20 @@ const AskBody = Type.Object({
 type AskBody = Static<typeof AskBody>;
 
 export const askRoute: FastifyPluginAsyncTypebox<{ deps: Asker }> = async (app, { deps }) => {
-  app.post("/", { schema: { body: AskBody } }, async (request) => {
+  app.post("/", { schema: { body: AskBody }, sse: "dual" }, async (request, reply) => {
     const { question, maxSteps } = request.body;
-    return { answer: await deps.ask(question, { maxSteps }) };
+
+    if (!reply.sse) {
+      return { answer: await deps.ask(question, { maxSteps }) };
+    }
+
+    await reply.sse.send({ event: "ack", data: null });
+    try {
+      const answer = await deps.ask(question, { maxSteps });
+      await reply.sse.send({ event: "answer", data: { answer } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await reply.sse.send({ event: "error", data: { message } });
+    }
   });
 };

@@ -1,10 +1,12 @@
+import { join } from "node:path";
 import { z } from "zod";
+import { findWorkspaceRoot } from "./env.js";
 
 export const LLM_PROVIDERS = ["openai", "anthropic"] as const;
 export type LlmProvider = (typeof LLM_PROVIDERS)[number];
 
 const ConfigSchema = z.object({
-  dataDir: z.string().default("./data"),
+  dataDir: z.string().default(() => join(findWorkspaceRoot(), "data")),
   llm: z.object({
     provider: z.enum(LLM_PROVIDERS).default("openai"),
     baseUrl: z.string().optional(),

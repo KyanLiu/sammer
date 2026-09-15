@@ -19,3 +19,4 @@ export { classifyFile } from "./raw/kind.js";
 export { canExtract, extractText } from "./raw/extract.js";
 export { CURATION_SYSTEM } from "./agent/curator/index.js";
 export { ORCHESTRATOR_SYSTEM } from "./agent/orchestrator/index.js";
+export { createTraceListener } from "./agent/trace.js";

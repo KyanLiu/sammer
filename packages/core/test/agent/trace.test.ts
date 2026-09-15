@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { AgentEvent } from "@sammer/shared";
-import { createTraceListener } from "../src/eventFormatter.js";
+import { createTraceListener } from "../../src/agent/trace.js";
 
 function run(events: AgentEvent[]): string[] {
   const lines: string[] = [];

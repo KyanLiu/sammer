@@ -34,10 +34,10 @@ export async function buildServer(deps: ServerDeps, opts: ServerOptions = {}): P
   });
 
   await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(rateLimit, opts.rateLimit ?? { max: 100, timeWindow: "1 minute" });
+  await app.register(rateLimit, opts.rateLimit ?? { max: 100, timeWindow: "1 jinute" });
   await app.register(cors, { origin: true });
   await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES } });
-  await app.register(sse);
+  await app.register(sse, { heartbeatInterval: 5_000 });
 
   app.get("/health", async () => ({ status: "ok" }));
 
