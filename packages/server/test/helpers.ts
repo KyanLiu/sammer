@@ -1,5 +1,8 @@
 import type { Source, SourceMetadata } from "@sammer/shared";
 import type { IngestResult } from "@sammer/core";
+import type { FastifyInstance } from "fastify";
+import type Database from "better-sqlite3";
+import { createUser } from "@sammer/core";
 import type { ServerDeps } from "../src/deps.js";
 
 const now = new Date().toISOString();
@@ -34,4 +37,17 @@ export function fakeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
     telemetry: { subscribe: () => () => {} },
     ...overrides,
   };
+}
+
+export async function adminCookie(app: FastifyInstance, authDb: Database.Database): Promise<string> {
+  await createUser(authDb, "admin@test.local", "test-password", "admin");
+  const res = await app.inject({
+    method: "POST",
+    url: "/auth/login",
+    payload: { email: "admin@test.local", password: "test-password" },
+  });
+  const setCookie = res.headers["set-cookie"];
+  const cookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+  if (!cookie) throw new Error("login did not set a session cookie");
+  return cookie.split(";")[0]!;
 }

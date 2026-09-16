@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type Database from "better-sqlite3";
+import { ADMIN_CALLER, roleRank } from "@sammer/shared";
 import type { Tool } from "../registry.js";
 import { defineTool } from "../define-tool.js";
 import type { WikiService } from "../../wiki/service.js";
 import { keywordSearch } from "../../index/search.js";
+import { listPageSlugs, listPageSummaries, type PageSummary } from "../../index/pages.js";
 
 export interface WikiToolDeps {
   wiki: WikiService;
@@ -14,15 +16,27 @@ export function buildReadIndexTool(deps: WikiToolDeps): Tool {
   return defineTool({
     name: "read_wiki_index",
     description:
-      "Read index.md, the catalog of every wiki page grouped by category with a one-line summary. " +
-      "ALWAYS read this first to orient before answering.",
+      "Read the catalog of every wiki page you can see, grouped by category with a one-line " +
+      "summary. ALWAYS read this first to orient before answering.",
     mutates: false,
     schema: z.object({}),
-    run: async () => {
-      const page = await deps.wiki.getPage("index");
-      return page && page.body.trim()
-        ? page.body
-        : "The index is empty. No pages have been catalogued yet.";
+    run: async (_args, ctx) => {
+      const rows = listPageSummaries(deps.db, roleRank((ctx.caller ?? ADMIN_CALLER).role));
+      if (rows.length === 0) return "The index is empty. No pages have been catalogued yet.";
+
+      const byCategory = new Map<string, PageSummary[]>();
+      for (const r of rows) {
+        const bucket = byCategory.get(r.category);
+        if (bucket) bucket.push(r);
+        else byCategory.set(r.category, [r]);
+      }
+      const sections = [...byCategory.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([category, pages]) => {
+          const lines = pages.map((p) => `- [[${p.slug}]] — ${p.summary || p.title}`);
+          return `## ${category}\n\n${lines.join("\n")}\n`;
+        });
+      return `# Index\n\n${sections.join("\n")}`;
     },
   });
 }
@@ -33,8 +47,12 @@ export function buildSearchWikiTool(deps: WikiToolDeps): Tool {
     description: "Keyword-search the wiki. Returns matching pages as slug, title, and a snippet.",
     mutates: false,
     schema: z.object({ query: z.string().describe("words to search for") }),
-    run: async ({ query }) => {
-      const hits = keywordSearch(deps.db, query, { k: 5, expandHops: 1 });
+    run: async ({ query }, ctx) => {
+      const hits = keywordSearch(deps.db, query, {
+        k: 5,
+        expandHops: 1,
+        maxRank: roleRank((ctx.caller ?? ADMIN_CALLER).role),
+      });
       if (hits.length === 0) return "No matching pages.";
       return hits.map((h) => `- [[${h.slug}]] "${h.title}": ${h.snippet}`).join("\n");
     },
@@ -47,8 +65,8 @@ export function buildReadPageTool(deps: WikiToolDeps): Tool {
     description: "Read the full markdown body of a wiki page by slug.",
     mutates: false,
     schema: z.object({ slug: z.string() }),
-    run: async ({ slug }) => {
-      const page = await deps.wiki.getPage(slug);
+    run: async ({ slug }, ctx) => {
+      const page = await deps.wiki.getPage(slug, roleRank((ctx.caller ?? ADMIN_CALLER).role));
       return page ? page.body : `Page "${slug}" does not exist.`;
     },
   });
@@ -60,8 +78,8 @@ export function buildListPagesTool(deps: WikiToolDeps): Tool {
     description: "List all content page slugs in the wiki.",
     mutates: false,
     schema: z.object({}),
-    run: async () => {
-      const slugs = await deps.wiki.listPages();
+    run: async (_args, ctx) => {
+      const slugs = listPageSlugs(deps.db, roleRank((ctx.caller ?? ADMIN_CALLER).role));
       return slugs.length ? slugs.join("\n") : "The wiki is empty.";
     },
   });

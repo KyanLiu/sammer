@@ -10,3 +10,24 @@ export const RESERVED_SLUGS = new Set(["index", "log"]);
  */
 export const EMBEDDABLE_FILE =
   /\.(png|jpe?g|gif|bmp|svg|webp|avif|mp3|wav|m4a|ogg|3gp|flac|mp4|webm|ogv|mov|mkv|pdf)$/i;
+
+/**
+ * Roles a wiki page is visible to, ranked ascending. A page's `role` is the
+ * minimum rank required to see it — a caller at that rank or higher can.
+ */
+export const ROLES = ["guest", "friend", "admin"] as const;
+export type Role = (typeof ROLES)[number];
+
+export const DEFAULT_PAGE_ROLE: Role = "admin";
+
+export function roleRank(role: Role): number {
+  return ROLES.indexOf(role);
+}
+
+export interface Caller {
+  role: Role;
+  userId?: string;
+  email?: string;
+}
+
+export const ADMIN_CALLER: Caller = { role: "admin" };

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type Database from "better-sqlite3";
-import type { Config, Page, SearchHit, Source } from "@sammer/shared";
+import type { Caller, Config, Page, SearchHit, Source } from "@sammer/shared";
+import { ADMIN_CALLER, roleRank } from "@sammer/shared";
 import type { LlmClient } from "./llm/client.js";
 import { createLlmClient } from "./llm/factory.js";
 import { WikiStore } from "./wiki/store.js";
@@ -11,6 +12,7 @@ import { extractText } from "./raw/extract.js";
 import { openIndexDb } from "./index/db.js";
 import { Indexer } from "./index/indexer.js";
 import { keywordSearch } from "./index/search.js";
+import { listPageSlugs } from "./index/pages.js";
 import type { Tool } from "./agent/registry.js";
 import type { Agent } from "./agent/agent.js";
 import { buildToolIndex } from "./agent/tools/index.js";
@@ -28,6 +30,7 @@ export interface RunOptions {
   readOnly?: boolean;
   maxSteps?: number;
   signal?: AbortSignal;
+  caller?: Caller;
 }
 
 export interface IngestOptions {
@@ -48,7 +51,6 @@ const FILE_SOURCE: IngestSource = { origin: "file" };
 
 export class Engine {
   private constructor(
-    private readonly store: WikiStore,
     private readonly raw: RawStore,
     private readonly wiki: WikiService,
     private readonly db: Database.Database,
@@ -86,7 +88,7 @@ export class Engine {
       [ORCHESTRATOR_ID, orchestrator],
     ]);
 
-    const engine = new Engine(store, raw, wiki, db, agents, curator, telemetry);
+    const engine = new Engine(raw, wiki, db, agents, curator, telemetry);
     // The markdown is the source of truth; the index is derived, so it is
     // rebuilt on every startup rather than trusted to be current.
     await engine.reindex();
@@ -97,13 +99,14 @@ export class Engine {
     return this.agent(ORCHESTRATOR_ID).run(prompt, {
       maxIterations: opts.maxSteps,
       readOnly: opts.readOnly,
+      caller: opts.caller,
       signal: opts.signal,
     });
   }
 
   async ask(
     question: string,
-    opts: { maxSteps?: number; signal?: AbortSignal } = {},
+    opts: { maxSteps?: number; signal?: AbortSignal; caller?: Caller } = {},
   ): Promise<string> {
     return this.run(question, { readOnly: true, ...opts });
   }
@@ -150,16 +153,16 @@ export class Engine {
     return this.wiki.reindex();
   }
 
-  async listPages(): Promise<string[]> {
-    return this.store.list();
+  async listPages(caller: Caller = ADMIN_CALLER): Promise<string[]> {
+    return listPageSlugs(this.db, roleRank(caller.role));
   }
 
-  async getPage(slug: string): Promise<Page | null> {
-    return this.store.read(slug);
+  async getPage(slug: string, caller: Caller = ADMIN_CALLER): Promise<Page | null> {
+    return this.wiki.getPage(slug, roleRank(caller.role));
   }
 
-  async search(q: string): Promise<SearchHit[]> {
-    return keywordSearch(this.db, q, { k: 8, expandHops: 1 });
+  async search(q: string, caller: Caller = ADMIN_CALLER): Promise<SearchHit[]> {
+    return keywordSearch(this.db, q, { k: 8, expandHops: 1, maxRank: roleRank(caller.role) });
   }
 
   close(): void {

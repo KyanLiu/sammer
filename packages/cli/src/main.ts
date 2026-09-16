@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
 import { loadConfig, loadDotEnv } from "@sammer/shared";
-import { Engine, createTraceListener } from "@sammer/core";
+import { Engine, createTraceListener, openAuthDb, createUser } from "@sammer/core";
 import { ingestCommand, UsageError } from "./commands/ingest.js";
 import { chatCommand } from "./commands/chat.js";
 import { formatHits, formatPages } from "./commands/search.js";
+import { userAddCommand, UserCommandError } from "./commands/user.js";
 import { USAGE } from "./usage.js";
+import { join } from "node:path";
 
 const INGEST_MAX_ITERATIONS = 16;
 const TITLE_LENGTH = 80;
@@ -20,6 +22,7 @@ async function main(argv: string[]): Promise<number> {
       "read-only": { type: "boolean", default: false },
       "dry-run": { type: "boolean", default: false },
       "max-steps": { type: "string" },
+      role: { type: "string" },
     },
   });
 
@@ -91,6 +94,21 @@ async function main(argv: string[]): Promise<number> {
         console.log(formatPages(await engine.listPages()));
         return 0;
 
+      case "user": {
+        const [sub, email] = rest;
+        if (sub !== "add") throw new UsageError(`unknown "user" subcommand "${sub}"`);
+        const authDb = openAuthDb(join(cfg.dataDir, "auth.db"));
+        try {
+          await userAddCommand(
+            { addUser: (e, p, r) => createUser(authDb, e, p, r) },
+            { email, role: values.role },
+          );
+        } finally {
+          authDb.close();
+        }
+        return 0;
+      }
+
       default:
         throw new UsageError(`unknown command "${command}"`);
     }
@@ -102,7 +120,7 @@ async function main(argv: string[]): Promise<number> {
 try {
   process.exitCode = await main(process.argv.slice(2));
 } catch (e) {
-  if (e instanceof UsageError) {
+  if (e instanceof UsageError || e instanceof UserCommandError) {
     console.error(`${e.message}\n\n${USAGE}`);
     process.exitCode = 2;
   } else if (e && typeof e === "object" && "issues" in e) {

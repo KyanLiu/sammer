@@ -13,6 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
     "@sammer/shared": "workspace:*",
+    "argon2": "^0.45.1",
     "better-sqlite3": "^11.3.0",
     "gray-matter": "^4.0.3",
     "openai": "^4.67.0",

@@ -1,4 +1,4 @@
-import { RESERVED_SLUGS, slugify, type Page } from "@sammer/shared";
+import { DEFAULT_PAGE_ROLE, RESERVED_SLUGS, slugify, roleRank, type Page } from "@sammer/shared";
 import type { Indexer } from "../index/indexer.js";
 import type { WikiStore } from "./store.js";
 import { extractLinks } from "./links.js";
@@ -41,6 +41,7 @@ export class WikiService {
         created: existing?.metadata.created ?? now,
         updated: now,
         sources: existing?.metadata.sources ?? [],
+        role: existing?.metadata.role ?? DEFAULT_PAGE_ROLE,
       },
       body: input.body,
       links: extractLinks(input.body),
@@ -53,8 +54,11 @@ export class WikiService {
     return page;
   }
 
-  async getPage(slug: string): Promise<Page | null> {
-    return this.store.read(slug);
+  async getPage(slug: string, maxRank: number = roleRank("admin")): Promise<Page | null> {
+    const page = await this.store.read(slug);
+    if (!page) return null;
+    if (roleRank(page.metadata.role ?? DEFAULT_PAGE_ROLE) > maxRank) return null;
+    return page;
   }
 
   async listPages(): Promise<string[]> {

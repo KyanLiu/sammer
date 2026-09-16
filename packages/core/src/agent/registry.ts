@@ -1,8 +1,9 @@
-import type { ToolDef } from "@sammer/shared";
+import type { ToolDef, Caller } from "@sammer/shared";
 
 export interface ToolContext {
   signal?: AbortSignal;
   readOnly?: boolean;
+  caller?: Caller;
 }
 
 export interface Tool {

@@ -11,4 +11,16 @@ describe("security headers", () => {
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
   });
+
+  it("does not add CORS headers by default (same-origin only)", async () => {
+    const app = await buildServer(fakeDeps());
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/health",
+      headers: { origin: "https://evil.example.com" },
+    });
+
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
 });

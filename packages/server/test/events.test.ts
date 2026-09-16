@@ -1,7 +1,8 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import type { AgentEvent } from "@sammer/shared";
+import { openAuthDb } from "@sammer/core";
 import { buildServer } from "../src/app.js";
-import { fakeDeps } from "./helpers.js";
+import { fakeDeps, adminCookie } from "./helpers.js";
 
 function fakeTelemetry() {
   const listeners = new Set<(event: AgentEvent) => void>();
@@ -41,11 +42,15 @@ describe("GET /events", () => {
 
   it("streams telemetry events as SSE frames and unsubscribes on disconnect", async () => {
     const telemetry = fakeTelemetry();
-    app = await buildServer(fakeDeps({ telemetry: telemetry.telemetry }));
+    const authDb = openAuthDb(":memory:");
+    app = await buildServer(fakeDeps({ telemetry: telemetry.telemetry }), {
+      auth: { db: authDb, cookieSecret: "test-secret" },
+    });
+    const cookie = await adminCookie(app, authDb);
     await app.listen({ port: 0, host: "127.0.0.1" });
 
     const controller = new AbortController();
-    const res = await fetch(`${addressOf(app)}/events`, { signal: controller.signal });
+    const res = await fetch(`${addressOf(app)}/events`, { signal: controller.signal, headers: { cookie } });
     expect(res.headers.get("content-type")).toContain("text/event-stream");
 
     const reader = res.body!.getReader();

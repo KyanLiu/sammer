@@ -8,6 +8,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { SOURCE_KINDS } from "@sammer/shared";
 import type { FileIngester, TextIngester } from "../deps.js";
+import { requireRole } from "../guard.js";
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -29,6 +30,8 @@ export const ingestRoutes: FastifyPluginAsyncTypebox<{ deps: TextIngester & File
   app,
   { deps },
 ) => {
+  app.addHook("preHandler", requireRole("admin"));
+
   app.post("/", { schema: { body: IngestBody } }, async (request) => {
     const { text, source } = request.body;
     return await deps.ingest(text, { source });

@@ -1,5 +1,5 @@
-// Derived, rebuildable index. FTS5 gives BM25 keyword ranking over whole pages;
-// `links` is the [[wikilink]] graph. No vector table — retrieval is keyword + graph.
+import { DEFAULT_PAGE_ROLE, roleRank } from "@sammer/shared";
+
 export const DDL = `
 CREATE TABLE IF NOT EXISTS pages (
   id TEXT PRIMARY KEY,
@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS pages (
   title TEXT NOT NULL,
   category TEXT NOT NULL,
   summary TEXT NOT NULL,
-  updated TEXT NOT NULL
+  updated TEXT NOT NULL,
+  role_rank INTEGER NOT NULL DEFAULT ${roleRank(DEFAULT_PAGE_ROLE)}
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
   slug UNINDEXED, title, summary, body

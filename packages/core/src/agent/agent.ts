@@ -1,5 +1,6 @@
 import type { z } from "zod";
-import type { ModelMessage } from "@sammer/shared";
+import type { ModelMessage, Caller } from "@sammer/shared";
+import { ADMIN_CALLER } from "@sammer/shared";
 import type { LlmClient } from "../llm/client.js";
 import type { ToolRegistry, Tool, ToolContext } from "./registry.js";
 import { defineTool } from "./define-tool.js";
@@ -43,6 +44,7 @@ export interface AgentRunOptions {
   context?: ModelMessage[];
   maxIterations?: number;
   readOnly?: boolean;
+  caller?: Caller;
   signal?: AbortSignal;
 }
 
@@ -72,8 +74,9 @@ export abstract class Agent {
 
   private async runOnce(user: string, opts: AgentRunOptions): Promise<string> {
     const readOnly = opts.readOnly;
+    const caller = opts.caller ?? ADMIN_CALLER;
     const maxIterations = opts.maxIterations ?? this.maxIterations;
-    const ctx: ToolContext = { readOnly, signal: opts.signal };
+    const ctx: ToolContext = { readOnly, signal: opts.signal, caller };
 
     const history = [...(this.memory?.get() ?? []), ...(opts.context ?? [])];
     const messages: ModelMessage[] = [

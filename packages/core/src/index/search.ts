@@ -20,23 +20,25 @@ const LINK_HIT_SCORE = 0.0001;
 export function keywordSearch(
   db: Database.Database,
   query: string,
-  opts: { k?: number; expandHops?: number } = {},
+  opts: { k?: number; expandHops?: number; maxRank?: number } = {},
 ): SearchHit[] {
   const k = opts.k ?? DEFAULT_K;
   const hops = opts.expandHops ?? 0;
+  const maxRank = opts.maxRank ?? Number.MAX_SAFE_INTEGER;
 
   const match = escapeFts(query);
   const rows = match
     ? (db
         .prepare(
-          `SELECT slug, title, bm25(pages_fts) AS bm,
+          `SELECT pages_fts.slug AS slug, pages_fts.title AS title, bm25(pages_fts) AS bm,
                   snippet(pages_fts, ${FTS_BODY_COLUMN}, '', '', '…', ${SNIPPET_TOKENS}) AS snip
            FROM pages_fts
-           WHERE pages_fts MATCH ?
+           JOIN pages ON pages.slug = pages_fts.slug
+           WHERE pages_fts MATCH ? AND pages.role_rank <= ?
            ORDER BY bm25(pages_fts)
            LIMIT ?`,
         )
-        .all(match, k) as { slug: string; title: string; bm: number; snip: string }[])
+        .all(match, maxRank, k) as { slug: string; title: string; bm: number; snip: string }[])
     : [];
 
   const hits = new Map<string, SearchHit>();
@@ -45,7 +47,7 @@ export function keywordSearch(
     hits.set(r.slug, { slug: r.slug, title: r.title, score: -r.bm, snippet: r.snip });
   }
 
-  if (hops > 0) expand(db, [...hits.keys()], hops, hits);
+  if (hops > 0) expand(db, [...hits.keys()], hops, hits, maxRank);
 
   return [...hits.values()].sort((a, b) => b.score - a.score);
 }
@@ -55,17 +57,18 @@ function expand(
   seeds: string[],
   hops: number,
   hits: Map<string, SearchHit>,
+  maxRank: number,
 ): void {
   const linkStmt = db.prepare(
     `SELECT p.slug AS slug, p.title AS title, p.summary AS summary
      FROM links l JOIN pages p ON p.slug = l.dst_slug
-     WHERE l.src_slug = ?`,
+     WHERE l.src_slug = ? AND p.role_rank <= ?`,
   );
   let frontier = [...seeds];
   for (let h = 0; h < hops; h++) {
     const next: string[] = [];
     for (const src of frontier) {
-      for (const row of linkStmt.all(src) as { slug: string; title: string; summary: string }[]) {
+      for (const row of linkStmt.all(src, maxRank) as { slug: string; title: string; summary: string }[]) {
         if (!hits.has(row.slug)) {
           hits.set(row.slug, {
             slug: row.slug,

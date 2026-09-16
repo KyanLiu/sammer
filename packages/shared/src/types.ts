@@ -1,3 +1,5 @@
+import type { Role } from "./constants.js";
+
 export type Slug = string
 
 export interface RecordMetadata {
@@ -13,6 +15,7 @@ export interface RecordMetadata {
 export interface PageMetadata extends RecordMetadata {
   slug: Slug; // the .md file name
   sources: SourceMetadata[]; // metadata of the sources this page was curated from
+  role: Role; // minimum caller rank required to see this page
 }
 // Page is derived and created from sources, can reference other pages 
 export interface Page {

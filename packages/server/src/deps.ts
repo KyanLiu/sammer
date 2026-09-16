@@ -1,17 +1,17 @@
-import type { AgentEvent, Page, SearchHit, Source } from "@sammer/shared";
+import type { AgentEvent, Caller, Page, SearchHit, Source } from "@sammer/shared";
 import type { IngestResult, IngestSource } from "@sammer/core";
 
 export interface PageReader {
-  listPages(): Promise<string[]>;
-  getPage(slug: string): Promise<Page | null>;
+  listPages(caller?: Caller): Promise<string[]>;
+  getPage(slug: string, caller?: Caller): Promise<Page | null>;
 }
 
 export interface Asker {
-  ask(question: string, opts?: { maxSteps?: number }): Promise<string>;
+  ask(question: string, opts?: { maxSteps?: number; caller?: Caller }): Promise<string>;
 }
 
 export interface Runner {
-  run(prompt: string, opts?: { readOnly?: boolean; maxSteps?: number }): Promise<string>;
+  run(prompt: string, opts?: { readOnly?: boolean; maxSteps?: number; caller?: Caller }): Promise<string>;
 }
 
 export interface TextIngester {
@@ -23,7 +23,7 @@ export interface FileIngester {
 }
 
 export interface Searcher {
-  search(q: string): Promise<SearchHit[]>;
+  search(q: string, caller?: Caller): Promise<SearchHit[]>;
 }
 
 export interface TelemetrySource {

@@ -17,12 +17,15 @@ import {
 
 let store: WikiStore;
 let registry: ToolRegistry;
+let db: ReturnType<typeof openIndexDb>;
+let indexer: Indexer;
 
 beforeEach(async () => {
   store = new WikiStore(await mkdtemp(join(tmpdir(), "sammer-tools-")));
   await store.init();
-  const db = openIndexDb(":memory:");
-  const wiki = new WikiService(store, new Indexer(db));
+  db = openIndexDb(":memory:");
+  indexer = new Indexer(db);
+  const wiki = new WikiService(store, indexer);
   const deps = { wiki, db };
   registry = new ToolRegistry();
   for (const tool of [
@@ -78,5 +81,39 @@ describe("wiki tools", () => {
 
   it("tells the model when a page does not exist", async () => {
     expect(await registry.invoke("read_wiki_page", { slug: "ghosts" })).toMatch(/does not exist/i);
+  });
+});
+
+describe("role-aware wiki tools", () => {
+  it("withhold a page above the caller's role from every read tool", async () => {
+    await registry.invoke("write_wiki_page", {
+      title: "Cats",
+      body: "Cats are great.",
+      category: "Animals",
+      summary: "Everything about cats",
+    });
+
+    // write_wiki_page always creates an admin-only page (DEFAULT_PAGE_ROLE) —
+    // a page's role is only ever lowered by hand-editing its frontmatter
+    // (design spec §3/§8), which this test does directly, then reindexes to
+    // keep the SQLite mirror in step with the file.
+    const page = await store.read("cats");
+    const guestPage = { ...page!, metadata: { ...page!.metadata, role: "friend" as const } };
+    await store.write(guestPage);
+    indexer.upsertPage(guestPage);
+
+    const guestCtx = { caller: { role: "guest" as const } };
+    expect(await registry.invoke("read_wiki_index", {}, guestCtx)).toMatch(/empty/i);
+    expect(await registry.invoke("search_wiki", { query: "cat" }, guestCtx)).toBe("No matching pages.");
+    expect(await registry.invoke("list_wiki_pages", {}, guestCtx)).toMatch(/empty/i);
+    expect(await registry.invoke("read_wiki_page", { slug: "cats" }, guestCtx)).toMatch(
+      /does not exist/i,
+    );
+
+    const adminCtx = { caller: { role: "admin" as const } };
+    expect(await registry.invoke("read_wiki_index", {}, adminCtx)).toContain("cats");
+    expect(await registry.invoke("read_wiki_page", { slug: "cats" }, adminCtx)).toMatch(
+      /Cats are great/,
+    );
   });
 });

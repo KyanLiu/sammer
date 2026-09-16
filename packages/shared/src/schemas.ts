@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SOURCE_KINDS } from "./types.js";
+import { DEFAULT_PAGE_ROLE, ROLES } from "./constants.js";
 
 // Validate Date Strings
 const IsoDate = z.union([z.string().min(1), z.date().transform((d) => d.toISOString())]);
@@ -29,6 +30,7 @@ export const SourceMetadataSchema = RecordMetadataSchema.extend({
 export const PageMetadataSchema = RecordMetadataSchema.extend({
   slug: z.string().min(1).catch(""),
   category: z.string().min(1).catch("Uncategorized"),
+  role: z.enum(ROLES).catch(DEFAULT_PAGE_ROLE),
   sources: z
     .array(SourceMetadataSchema.nullable().catch(null))
     .catch([])

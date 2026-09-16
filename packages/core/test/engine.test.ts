@@ -373,3 +373,59 @@ describe("Engine.run", () => {
     engine.close();
   });
 });
+
+describe("Engine role scoping", () => {
+  it("withholds a page above the caller's role from getPage/listPages/search", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        {
+          tool: [
+            "write_wiki_page",
+            { title: "Secrets", body: "top secret stuff", category: "Private", summary: "Shh" },
+          ],
+        },
+        { text: "Stored." },
+      ]),
+    });
+    await engine.ingest("secret stuff");
+
+    expect(await engine.listPages({ role: "guest" })).toEqual([]);
+    expect(await engine.listPages()).toEqual(["secrets"]);
+    expect(await engine.getPage("secrets", { role: "guest" })).toBeNull();
+    expect((await engine.getPage("secrets"))?.metadata.slug).toBe("secrets");
+    expect((await engine.search("secret", { role: "guest" })).map((h) => h.slug)).not.toContain(
+      "secrets",
+    );
+    engine.close();
+  });
+
+  it("keeps a guest-scoped run from reading an admin-only page even via tools", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        {
+          tool: [
+            "write_wiki_page",
+            { title: "Secrets", body: "the launch code is 1234", category: "Private", summary: "Shh" },
+          ],
+        },
+        { text: "Stored." },
+      ]),
+    });
+    await engine.ingest("secret stuff");
+
+    const guestRun = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        { tool: ["search_wiki", { query: "secret" }] },
+        { tool: ["read_wiki_page", { slug: "secrets" }] },
+        { text: "I don't have anything on that." },
+      ]),
+    });
+
+    const answer = await guestRun.ask("what's the launch code?", { caller: { role: "guest" } });
+    expect(answer).not.toContain("1234");
+    guestRun.close();
+    engine.close();
+  });
+});

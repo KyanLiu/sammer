@@ -20,3 +20,11 @@ export { canExtract, extractText } from "./raw/extract.js";
 export { CURATION_SYSTEM } from "./agent/curator/index.js";
 export { ORCHESTRATOR_SYSTEM } from "./agent/orchestrator/index.js";
 export { createTraceListener } from "./agent/trace.js";
+export { openAuthDb } from "./auth/db.js";
+export { createUser, verifyUser, type User } from "./auth/users.js";
+export { createSession, resolveSession, deleteSession } from "./auth/sessions.js";
+export {
+  tryConsumeGuestQuota,
+  type GuestQuotaLimits,
+  type GuestQuotaResult,
+} from "./auth/quota.js";

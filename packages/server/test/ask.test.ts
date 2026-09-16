@@ -1,6 +1,8 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { buildServer } from "../src/app.js";
 import { fakeDeps } from "./helpers.js";
+import { openAuthDb, type GuestQuotaLimits } from "@sammer/core";
+import type { Caller } from "@sammer/shared";
 
 function addressOf(app: Awaited<ReturnType<typeof buildServer>>): string {
   const address = app.server.address();
@@ -82,6 +84,22 @@ describe("POST /ask", () => {
     expect(seen).toBe(4);
   });
 
+  it("passes the caller's resolved role through to ask()", async () => {
+    let seenCaller: Caller | undefined;
+    const app = await buildServer(
+      fakeDeps({
+        ask: async (_q, opts) => {
+          seenCaller = opts?.caller;
+          return "ok";
+        },
+      }),
+    );
+
+    await app.inject({ method: "POST", url: "/ask", payload: { question: "q" } });
+
+    expect(seenCaller).toEqual({ role: "guest" });
+  });
+
   describe("when the client negotiates SSE", () => {
     let app: Awaited<ReturnType<typeof buildServer>> | undefined;
 
@@ -150,6 +168,58 @@ describe("POST /ask", () => {
 
       expect(res.status).toBe(400);
       expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+    });
+  });
+
+  describe("POST /ask guest daily quotas", () => {
+    it("429s the requesting IP once its own daily cap is spent, leaving other IPs unaffected", async () => {
+      const authDb = openAuthDb(":memory:");
+      const limits: GuestQuotaLimits = { perIp: 1, total: 10 };
+      const app = await buildServer(fakeDeps({ ask: async () => "ok" }), {
+        guestQuota: { authDb, limits },
+      });
+
+      const first = await app.inject({
+        method: "POST",
+        url: "/ask",
+        remoteAddress: "1.1.1.1",
+        payload: { question: "q" },
+      });
+      expect(first.statusCode).toBe(200);
+
+      const second = await app.inject({
+        method: "POST",
+        url: "/ask",
+        remoteAddress: "1.1.1.1",
+        payload: { question: "q" },
+      });
+      expect(second.statusCode).toBe(429);
+
+      const otherIp = await app.inject({
+        method: "POST",
+        url: "/ask",
+        remoteAddress: "2.2.2.2",
+        payload: { question: "q" },
+      });
+      expect(otherIp.statusCode).toBe(200);
+    });
+
+    it("429s every IP once the global daily total is spent", async () => {
+      const authDb = openAuthDb(":memory:");
+      const limits: GuestQuotaLimits = { perIp: 10, total: 1 };
+      const app = await buildServer(fakeDeps({ ask: async () => "ok" }), {
+        guestQuota: { authDb, limits },
+      });
+
+      await app.inject({ method: "POST", url: "/ask", remoteAddress: "1.1.1.1", payload: { question: "q" } });
+      const res = await app.inject({
+        method: "POST",
+        url: "/ask",
+        remoteAddress: "2.2.2.2",
+        payload: { question: "q" },
+      });
+
+      expect(res.statusCode).toBe(429);
     });
   });
 });

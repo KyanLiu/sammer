@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Writable } from "node:stream";
+import { openAuthDb } from "@sammer/core";
 import { buildServer } from "../src/app.js";
-import { fakeDeps } from "./helpers.js";
+import { fakeDeps, adminCookie } from "./helpers.js";
 
 function captureStream(): { stream: Writable; lines: () => unknown[] } {
   const chunks: string[] = [];
@@ -28,16 +29,18 @@ describe("request logging", () => {
 
   it("logs a thrown engine error through the request logger instead of the console", async () => {
     const { stream, lines } = captureStream();
+    const authDb = openAuthDb(":memory:");
     const app = await buildServer(
       fakeDeps({
         search: async () => {
           throw new Error("boom");
         },
       }),
-      { logger: { stream } },
+      { logger: { stream }, auth: { db: authDb, cookieSecret: "test-secret" } },
     );
+    const cookie = await adminCookie(app, authDb);
 
-    const res = await app.inject({ method: "GET", url: "/search?q=x" });
+    const res = await app.inject({ method: "GET", url: "/search?q=x", headers: { cookie } });
 
     expect(res.statusCode).toBe(500);
     const errorLine = lines().find((l: any) => l.level === 50);

@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { Page } from "@sammer/shared";
+import { DEFAULT_PAGE_ROLE, roleRank, type Page } from "@sammer/shared";
 
 export class Indexer {
   constructor(private readonly db: Database.Database) {}
@@ -16,9 +16,9 @@ export class Indexer {
   }
 
   upsertPage(page: Page): void {
-    const { id, slug, title, category, summary, updated } = page.metadata;
+    const { id, slug, title, category, summary, updated, role } = page.metadata;
+    const roleRankValue = roleRank(role ?? DEFAULT_PAGE_ROLE);
     const tx = this.db.transaction(() => {
-      // Clear any prior rows for this page — by id AND by slug (slug may have changed).
       this.removePage(id);
       this.db.prepare("DELETE FROM pages_fts WHERE slug = ?").run(slug);
       this.db.prepare("DELETE FROM links WHERE src_slug = ?").run(slug);
@@ -26,9 +26,9 @@ export class Indexer {
 
       this.db
         .prepare(
-          "INSERT INTO pages (id, slug, title, category, summary, updated) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO pages (id, slug, title, category, summary, updated, role_rank) VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
-        .run(id, slug, title, category, summary, updated);
+        .run(id, slug, title, category, summary, updated, roleRankValue);
       this.db
         .prepare("INSERT INTO pages_fts (slug, title, summary, body) VALUES (?, ?, ?, ?)")
         .run(slug, title, summary, page.body);

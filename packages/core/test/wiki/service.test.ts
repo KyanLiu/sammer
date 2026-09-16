@@ -98,4 +98,20 @@ describe("WikiService.savePage", () => {
 
     expect(await store.readText("index")).toBe("# Index\n\ngenerated\n");
   });
+
+  it("defaults a new page's role to admin, and carries it forward on update", async () => {
+    const created = await wiki.savePage({ title: "Cats", body: "v1", summary: "s" });
+    expect(created.metadata.role).toBe("admin");
+
+    await store.write({ ...created, metadata: { ...created.metadata, role: "guest" } });
+    const updated = await wiki.savePage({ title: "Cats", body: "v2", summary: "s" });
+    expect(updated.metadata.role).toBe("guest");
+  });
+
+  it("withholds a page above the caller's rank, same as a nonexistent slug", async () => {
+    await wiki.savePage({ title: "Secrets", body: "shh", summary: "s" });
+
+    expect(await wiki.getPage("secrets", 0 /* guest */)).toBeNull();
+    expect((await wiki.getPage("secrets"))?.metadata.slug).toBe("secrets");
+  });
 });
