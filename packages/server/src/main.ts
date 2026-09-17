@@ -36,7 +36,7 @@ async function main(): Promise<void> {
       },
     },
     webDist: process.env.WEB_DIST,
-    corsOrigin: process.env.CORS_ORIGIN,
+    corsOrigin: process.env.CORS_ORIGIN || undefined,
   });
 
   const port = Number(process.env.PORT ?? 8080);
