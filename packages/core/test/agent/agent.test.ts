@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { z } from "zod";
 import { Agent, asTool } from "../../src/agent/agent.js";
 import { Memory } from "../../src/agent/memory.js";
@@ -39,7 +39,23 @@ function toolNamed(name: string, run: Tool["run"], mutates = false): Tool {
   };
 }
 
+const TODAY = "2026-09-18";
+
+// every system message is the shared date preamble followed by the agent's own prompt.
+function withDate(system: string): string {
+  return `Today's date is ${TODAY}.\n\n${system}`;
+}
+
 describe("Agent.run", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("runs a tool call and feeds its result back to the model", async () => {
     const registry = new ToolRegistry();
     registry.register(toolNamed("search_wiki", async (args) => `RESULT for ${args.query}`));
@@ -56,7 +72,7 @@ describe("Agent.run", () => {
 
     // The conversation opens with the system prompt, then the user's question.
     expect(llm.seen[0]!.messages).toEqual([
-      { role: "system", content: "sys" },
+      { role: "system", content: withDate("sys") },
       { role: "user", content: "tell me about cats" },
     ]);
     expect(llm.seen[0]!.tools).toEqual([
@@ -252,7 +268,7 @@ describe("Agent.run", () => {
     });
 
     expect(llm.seen[0]!.messages).toEqual([
-      { role: "system", content: "sys" },
+      { role: "system", content: withDate("sys") },
       { role: "user", content: "my name is kyan" },
       { role: "assistant", content: "Noted." },
       { role: "user", content: "and my favourite colour?" },
@@ -266,7 +282,7 @@ describe("Agent.run", () => {
     await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry }).run("hello");
 
     expect(llm.seen[0]!.messages).toEqual([
-      { role: "system", content: "sys" },
+      { role: "system", content: withDate("sys") },
       { role: "user", content: "hello" },
     ]);
   });
@@ -283,7 +299,7 @@ describe("Agent.run", () => {
     await agent.run("and my favourite colour?");
 
     expect(llm.seen[1]!.messages).toEqual([
-      { role: "system", content: "sys" },
+      { role: "system", content: withDate("sys") },
       { role: "user", content: "my name is kyan" },
       { role: "assistant", content: "Noted." },
       { role: "user", content: "and my favourite colour?" },
@@ -304,7 +320,7 @@ describe("Agent.run", () => {
     });
 
     expect(llm.seen[1]!.messages).toEqual([
-      { role: "system", content: "sys" },
+      { role: "system", content: withDate("sys") },
       { role: "user", content: "my name is kyan" },
       { role: "assistant", content: "Noted." },
       { role: "user", content: "(aside: it is raining)" },
@@ -326,7 +342,7 @@ describe("Agent.run", () => {
     await agent.run("what's my name?");
 
     expect(llm.seen[1]!.messages).toEqual([
-      { role: "system", content: "sys" },
+      { role: "system", content: withDate("sys") },
       { role: "user", content: "what's my name?" },
     ]);
   });

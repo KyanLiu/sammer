@@ -29,6 +29,10 @@ export function asTool<S extends z.ZodType>(spec: BridgeSpec<S>): Tool {
 
 const DEFAULT_MAX_ITERATIONS = 8;
 
+function basePrompt(): string {
+  return `Today's date is ${new Date().toISOString().slice(0, 10)}.`;
+}
+
 // agent initialization config
 export interface AgentConfig {
   id: string;
@@ -80,7 +84,7 @@ export abstract class Agent {
 
     const history = [...(this.memory?.get() ?? []), ...(opts.context ?? [])];
     const messages: ModelMessage[] = [
-      { role: "system", content: this.system },
+      { role: "system", content: `${basePrompt()}\n\n${this.system}` },
       ...history,
       { role: "user", content: user },
     ];
