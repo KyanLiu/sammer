@@ -10,6 +10,7 @@
     "smoke": "node scripts/smoke.mjs",
     "typecheck": "tsc -b && pnpm --filter @sammer/web check",
     "start:server": "pnpm --filter @sammer/server start",
+    "publish:image": "bash scripts/publish.sh",
     "dev:web": "pnpm --filter @sammer/web dev"
   },
   "devDependencies": {

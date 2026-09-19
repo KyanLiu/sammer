@@ -1,6 +1,7 @@
 services:
   server:
     build: .
+    image: ghcr.io/kyanliu/sammer:latest
     restart: unless-stopped
     env_file: .env
     volumes:
