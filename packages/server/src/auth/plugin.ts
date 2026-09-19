@@ -15,10 +15,12 @@ const GUEST_CALLER: Caller = { role: "guest" };
 
 export interface AuthPluginOptions {
   db: Database.Database;
+  secureCookies?: boolean;
 }
 
 export const authPlugin = fp(async (app: FastifyInstance, opts: AuthPluginOptions) => {
   const { db } = opts;
+  const secure = opts.secureCookies ?? true;
 
   app.decorateRequest("caller", null, []);
 
@@ -50,7 +52,7 @@ export const authPlugin = fp(async (app: FastifyInstance, opts: AuthPluginOption
     const session = createSession(db, user.id);
     reply.setCookie(SESSION_COOKIE, session.id, {
       httpOnly: true,
-      secure: true,
+      secure,
       sameSite: "lax",
       signed: true,
       path: "/",

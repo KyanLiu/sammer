@@ -3,7 +3,7 @@ import { asTool } from "../agent.js";
 import type { Tool } from "../registry.js";
 import { archiveText, type IngestSource } from "../../raw/archive.js";
 import type { RawStore } from "../../raw/store.js";
-import type { CuratorAgent } from "./index.js";
+import { wrapUntrustedMaterial, type CuratorAgent } from "./index.js";
 
 const CHAT_SOURCE: IngestSource = { origin: "chat", kind: "conversation" };
 
@@ -24,7 +24,7 @@ export function buildCurateTool(curator: CuratorAgent, raw: RawStore): Tool {
     run: async (material, opts) => {
       const archived = await archiveText(raw, material, CHAT_SOURCE);
       if (archived.skipped) return "Already ingested; nothing to do.";
-      return curator.run(material, { signal: opts.signal });
+      return curator.run(wrapUntrustedMaterial(material), { signal: opts.signal });
     },
   });
 }

@@ -184,6 +184,59 @@ describe("Engine raw archive", () => {
     expect(await rawFiles(cfg, "chat")).toHaveLength(2);
     engine.close();
   });
+
+  it("wraps ingested material in untrusted-data markers before handing it to the curator", async () => {
+    const cfg = await makeCfg();
+    let curatorContent: string | undefined;
+    let i = 0;
+    const engine = await Engine.create(cfg, {
+      llm: {
+        chat: async (req) => {
+          const userMsg = req.messages.find((m) => m.role === "user");
+          if (userMsg && String(userMsg.content).includes("<<<BEGIN SOURCE MATERIAL>>>")) {
+            curatorContent ??= String(userMsg.content);
+          }
+          return WRITES_CATS[Math.min(i++, WRITES_CATS.length - 1)]!;
+        },
+      },
+    });
+
+    await engine.ingest("Cats nap.", { source: { origin: "cli", kind: "text" } });
+
+    expect(curatorContent).toContain("<<<BEGIN SOURCE MATERIAL>>>");
+    expect(curatorContent).toContain("Cats nap.");
+    expect(curatorContent).toContain("<<<END SOURCE MATERIAL>>>");
+    engine.close();
+  });
+
+  it("wraps chat-triggered curate material with the same untrusted-data markers", async () => {
+    const cfg = await makeCfg();
+    let curatorContent: string | undefined;
+    const engine = await Engine.create(cfg, {
+      llm: {
+        chat: async (req) => {
+          const asked = req.messages.some((m) => m.role === "tool");
+          const userMsg = [...req.messages].reverse().find((m) => m.role === "user");
+          if (userMsg && String(userMsg.content).includes("<<<BEGIN SOURCE MATERIAL>>>")) {
+            curatorContent ??= String(userMsg.content);
+            return asked ? { content: "Wrote it.", toolCalls: [] } : WRITES_CATS[0]!;
+          }
+          return asked
+            ? { content: "Saved.", toolCalls: [] }
+            : {
+                content: null,
+                toolCalls: [{ id: "t1", name: "curate", arguments: { material: "Cats nap a lot." } }],
+              };
+        },
+      },
+    });
+
+    await engine.run("remember that cats nap a lot");
+
+    expect(curatorContent).toContain("<<<BEGIN SOURCE MATERIAL>>>");
+    expect(curatorContent).toContain("Cats nap a lot.");
+    engine.close();
+  });
 });
 
 describe("Engine.ingestFile", () => {

@@ -1,0 +1,8 @@
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface-app);color:var(--text-body);font-family:var(--font-ui);font-size:var(--text-body-size);line-height:var(--text-body-lh);-webkit-font-smoothing:antialiased}
+a{color:var(--text-link);text-decoration:none;border-bottom:var(--border-width) solid currentColor;transition:color var(--dur-fast) var(--ease-standard)}
+a:hover{color:var(--text-link-hover)}
+::selection{background:var(--honey-200);color:var(--text-on-accent)}
+:focus-visible{outline:var(--border-width) solid var(--action-primary);outline-offset:2px}
+/* Pixel faces must never be smoothed or sub-pixel scaled. */
+.font-display,.font-label{-webkit-font-smoothing:none;font-smooth:never}

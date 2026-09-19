@@ -217,6 +217,21 @@ describe("Agent.run", () => {
     expect(llm.seen[0]!.tools!.map((t) => t.name)).toEqual(["read_page"]);
   });
 
+  it("tells a read-only agent not to claim it wrote anything", async () => {
+    const registry = new ToolRegistry();
+    const llm = scriptedLlm([{ content: "Saved it!", toolCalls: [] }]);
+
+    await new TestAgent({ id: "test-agent", telemetry: new AgentTelemetry(), llm, system: "sys", registry }).run(
+      "remember this",
+      { readOnly: true },
+    );
+
+    expect(llm.seen[0]!.messages[0]).toMatchObject({
+      role: "system",
+      content: expect.stringMatching(/write access is disabled/i),
+    });
+  });
+
   it("refuses a mutating tool a read-only agent asks for anyway", async () => {
     const registry = new ToolRegistry();
     registry.register(toolNamed("write_page", async () => "WROTE", true));

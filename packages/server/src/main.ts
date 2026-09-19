@@ -28,6 +28,7 @@ async function main(): Promise<void> {
       timeWindow: process.env.RATE_LIMIT_WINDOW ?? "1 minute",
     },
     auth: { db: authDb, cookieSecret },
+    secureCookies: process.env.COOKIE_SECURE !== "false",
     guestQuota: {
       authDb,
       limits: {

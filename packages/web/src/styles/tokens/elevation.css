@@ -1,0 +1,11 @@
+:root{
+--shadow-none:none;
+--shadow-hairline:0 0 0 var(--border-width) var(--line-hairline);
+--shadow-card:3px 3px 0 0 #000000;
+--shadow-raised:5px 5px 0 0 #000000;
+--shadow-sheet:0 -4px 0 0 #000000;
+--shadow-inset:inset 0 var(--border-width) 0 rgba(255,255,255,.06);
+--blur-veil:none;
+--veil-bg:var(--surface-app);
+}
+[data-theme="light"]{--shadow-card:3px 3px 0 0 #101318;--shadow-raised:5px 5px 0 0 #101318;--shadow-sheet:0 -4px 0 0 #101318;--veil-bg:var(--paper-200);--shadow-inset:inset 0 var(--border-width) 0 rgba(255,255,255,.7);}

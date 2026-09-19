@@ -24,6 +24,7 @@ export interface ServerOptions {
   logger?: FastifyServerOptions["logger"];
   trustProxy?: FastifyServerOptions["trustProxy"];
   auth?: { db: Database.Database; cookieSecret: string };
+  secureCookies?: boolean;
   guestQuota?: { authDb: Database.Database; limits: GuestQuotaLimits };
   webDist?: string;
   corsOrigin?: boolean | string;
@@ -51,7 +52,7 @@ export async function buildServer(deps: ServerDeps, opts: ServerOptions = {}): P
 
   const auth = opts.auth ?? { db: openAuthDb(":memory:"), cookieSecret: randomBytes(32).toString("hex") };
   await app.register(cookie, { secret: auth.cookieSecret });
-  await app.register(authPlugin, { db: auth.db });
+  await app.register(authPlugin, { db: auth.db, secureCookies: opts.secureCookies ?? true });
 
   app.get("/health", async () => ({ status: "ok" }));
 

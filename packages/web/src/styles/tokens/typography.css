@@ -1,0 +1,20 @@
+:root{
+--font-display:"Pixelify Sans",ui-monospace,monospace;
+--font-label:"VT323",ui-monospace,monospace;
+--font-ui:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+--font-mono:"DM Mono",ui-monospace,SFMono-Regular,monospace;
+--font-dialogue:"VT323",ui-monospace,monospace;
+--dialogue-size:25px;--dialogue-lh:40px;--dialogue-track:0.055em;
+--dialogue-size-sm:21px;--dialogue-lh-sm:34px;
+
+--text-display-size:36px;--text-display-lh:40px;--text-display-weight:600;--text-display-track:0;
+--text-title-size:28px;--text-title-lh:32px;--text-title-weight:600;--text-title-track:0;
+--text-heading-size:20px;--text-heading-lh:24px;--text-heading-weight:600;--text-heading-track:0;
+--text-subhead-size:16px;--text-subhead-lh:22px;--text-subhead-weight:600;--text-subhead-track:0;
+--text-body-size:16px;--text-body-lh:26px;--text-body-weight:400;--text-body-track:0;
+--text-small-size:14px;--text-small-lh:22px;--text-small-weight:400;--text-small-track:0;
+--text-caption-size:12.5px;--text-caption-lh:18px;--text-caption-weight:500;--text-caption-track:0;
+--text-label-size:18px;--text-label-lh:20px;--text-label-weight:400;--text-label-track:0.02em;
+--text-nav-size:20px;
+--text-mono-size:13px;--text-mono-lh:20px;
+}

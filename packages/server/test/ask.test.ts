@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { buildServer } from "../src/app.js";
-import { fakeDeps } from "./helpers.js";
+import { fakeDeps, adminCookie } from "./helpers.js";
 import { openAuthDb, type GuestQuotaLimits } from "@sammer/core";
 import type { Caller } from "@sammer/shared";
 
@@ -168,6 +168,61 @@ describe("POST /ask", () => {
 
       expect(res.status).toBe(400);
       expect(res.headers.get("content-type")).not.toContain("text/event-stream");
+    });
+  });
+
+  describe("POST /ask allowWrite", () => {
+    it("routes to run() with write access when an admin sets allowWrite", async () => {
+      let seenReadOnly: boolean | undefined;
+      const authDb = openAuthDb(":memory:");
+      const app = await buildServer(
+        fakeDeps({
+          run: async (_prompt, opts) => {
+            seenReadOnly = opts?.readOnly;
+            return "ran it";
+          },
+        }),
+        { auth: { db: authDb, cookieSecret: "test-secret" } },
+      );
+      const cookie = await adminCookie(app, authDb);
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/ask",
+        headers: { cookie },
+        payload: { question: "q", allowWrite: true },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ answer: "ran it" });
+      expect(seenReadOnly).toBe(false);
+    });
+
+    it("ignores allowWrite for a non-admin caller and stays on ask()", async () => {
+      let askCalled = false;
+      let runCalled = false;
+      const app = await buildServer(
+        fakeDeps({
+          ask: async () => {
+            askCalled = true;
+            return "read-only answer";
+          },
+          run: async () => {
+            runCalled = true;
+            return "should not happen";
+          },
+        }),
+      );
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/ask",
+        payload: { question: "q", allowWrite: true },
+      });
+
+      expect(res.json()).toEqual({ answer: "read-only answer" });
+      expect(askCalled).toBe(true);
+      expect(runCalled).toBe(false);
     });
   });
 

@@ -17,7 +17,7 @@ import type { Tool } from "./agent/registry.js";
 import type { Agent } from "./agent/agent.js";
 import { buildToolIndex } from "./agent/tools/index.js";
 import { buildAgents } from "./agent/build.js";
-import { CURATOR_ID, type CuratorAgent } from "./agent/curator/index.js";
+import { CURATOR_ID, wrapUntrustedMaterial, type CuratorAgent } from "./agent/curator/index.js";
 import { ORCHESTRATOR_ID } from "./agent/orchestrator/index.js";
 import { AgentTelemetry } from "./agent/telemetry.js";
 
@@ -142,7 +142,7 @@ export class Engine {
       };
     }
 
-    const answer = await this.curator.run(`New information to integrate:\n\n${material}`, {
+    const answer = await this.curator.run(wrapUntrustedMaterial(material), {
       maxIterations: opts.maxSteps,
       signal: opts.signal,
     });

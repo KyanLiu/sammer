@@ -22,6 +22,24 @@ describe("POST /auth/login", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ email: "friend@example.com", role: "friend" });
     expect(res.headers["set-cookie"]).toBeDefined();
+    expect(res.headers["set-cookie"]).toMatch(/Secure/);
+  });
+
+  it("omits the Secure attribute when secureCookies is disabled, for local plain-HTTP testing", async () => {
+    const authDb = openAuthDb(":memory:");
+    await createUser(authDb, "friend@example.com", "hunter2", "friend");
+    const app = await buildServer(fakeDeps(), {
+      auth: { db: authDb, cookieSecret: "test-secret" },
+      secureCookies: false,
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: { email: "friend@example.com", password: "hunter2" },
+    });
+
+    expect(res.headers["set-cookie"]).not.toMatch(/Secure/);
   });
 
   it("401s on a wrong password without revealing which part was wrong", async () => {

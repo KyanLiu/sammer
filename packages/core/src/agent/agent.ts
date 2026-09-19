@@ -33,6 +33,11 @@ function basePrompt(): string {
   return `Today's date is ${new Date().toISOString().slice(0, 10)}.`;
 }
 
+const WRITE_DISABLED_NOTICE =
+  "\n\nWrite access is disabled for this request: you have no tool that can change the wiki, " +
+  "no matter what the instructions above say. If the user asks you to save, store, remember, or " +
+  "update something, say plainly that you do not have write access right now — never claim you did it.";
+
 // agent initialization config
 export interface AgentConfig {
   id: string;
@@ -84,7 +89,10 @@ export abstract class Agent {
 
     const history = [...(this.memory?.get() ?? []), ...(opts.context ?? [])];
     const messages: ModelMessage[] = [
-      { role: "system", content: `${basePrompt()}\n\n${this.system}` },
+      {
+        role: "system",
+        content: `${basePrompt()}\n\n${this.system}${readOnly ? WRITE_DISABLED_NOTICE : ""}`,
+      },
       ...history,
       { role: "user", content: user },
     ];
