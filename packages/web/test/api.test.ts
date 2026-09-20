@@ -1,5 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ask, login, logout, me } from "../src/api.js";
+import { ask, ingestText, login, logout, me } from "../src/api.js";
+
+describe("baseUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("honors an explicitly-set empty VITE_SERVER_URL instead of falling back to /api", async () => {
+    vi.stubEnv("VITE_SERVER_URL", "");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => null },
+      json: async () => ({ role: "guest" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await logout();
+
+    expect(fetchMock).toHaveBeenCalledWith("/auth/logout", { method: "POST", credentials: "include" });
+  });
+});
 
 function sseBody(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -176,5 +199,66 @@ describe("login / logout / me", () => {
 
     expect(result).toEqual({ role: "guest" });
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/me", { credentials: "include" });
+  });
+});
+
+describe("ingestText", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts text with no source when none is given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => null },
+      json: async () => ({ summary: "added a page", skipped: false, curated: true }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await ingestText("some content");
+
+    expect(result).toEqual({ summary: "added a page", skipped: false, curated: true });
+    expect(fetchMock).toHaveBeenCalledWith("/api/ingest", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "some content", source: undefined }),
+    });
+  });
+
+  it("posts the source object when given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => null },
+      json: async () => ({ summary: "already archived", skipped: true, curated: false }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await ingestText("dup content", { origin: "web-ui", title: "My note" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/ingest",
+      expect.objectContaining({
+        body: JSON.stringify({ text: "dup content", source: { origin: "web-ui", title: "My note" } }),
+      }),
+    );
+  });
+
+  it("throws with the server's error message when the request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        json: async () => ({ error: "text is required" }),
+      }),
+    );
+
+    await expect(ingestText("")).rejects.toThrow("text is required");
   });
 });

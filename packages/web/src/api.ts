@@ -8,10 +8,11 @@ export interface Session {
 }
 
 // VITE_SERVER_URL must be the @sammer/server root URL (no trailing path) —
-// requests are made to `${baseUrl()}/ask`. Falls back to "/api", the dev
-// server's Vite proxy path (see vite.config.ts) when unset.
+// requests are made to `${baseUrl()}/ask`. Unset, it defaults to "/api" in dev
+// (the Vite proxy path, see vite.config.ts) and "" in a production build,
+// since there the same server serves both the API and this bundle from one origin.
 function baseUrl(): string {
-  return import.meta.env.VITE_SERVER_URL || "/api";
+  return import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "/api" : "");
 }
 
 interface SseFrame {
@@ -103,4 +104,27 @@ export async function logout(): Promise<void> {
 export async function me(): Promise<Session> {
   const res = await fetch(`${baseUrl()}/auth/me`, { credentials: "include" });
   return (await res.json()) as Session;
+}
+
+export interface IngestResult {
+  summary: string;
+  skipped: boolean;
+  curated: boolean;
+}
+
+export async function ingestText(
+  text: string,
+  source?: { origin: string; title?: string; url?: string },
+): Promise<IngestResult> {
+  const res = await fetch(`${baseUrl()}/ingest`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, source }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? "ingest failed");
+  }
+  return (await res.json()) as IngestResult;
 }

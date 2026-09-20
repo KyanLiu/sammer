@@ -4,10 +4,11 @@
   import AskLanding from "./lib/AskLanding.svelte";
   import AnswerStage from "./lib/AnswerStage.svelte";
   import VoiceScreen from "./lib/VoiceScreen.svelte";
+  import IngestView from "./lib/IngestView.svelte";
   import { history } from "./lib/stores/history.js";
   import { ask, login, logout, me, type Session } from "./api.js";
 
-  type Page = "ask" | "memory" | "sources";
+  type Page = "ask" | "memory" | "sources" | "ingest";
   type Phase = "idle" | "thinking" | "answering";
 
   let page = $state<Page>("ask");
@@ -149,6 +150,12 @@
             {allowWrite}
             onToggleAllowWrite={canWrite ? () => (allowWrite = !allowWrite) : undefined}
           />
+        {/if}
+      {:else if page === "ingest"}
+        {#if canWrite}
+          <IngestView />
+        {:else}
+          <div class="placeholder">Not authorized.</div>
         {/if}
       {:else}
         <div class="placeholder">Coming soon.</div>

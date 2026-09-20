@@ -34,8 +34,8 @@ export async function buildServer(deps: ServerDeps, opts: ServerOptions = {}): P
   const app = Fastify({
     logger: opts.logger ?? false,
     trustProxy: opts.trustProxy ?? false,
-    connectionTimeout: 10_000,
-    requestTimeout: 30_000,
+    connectionTimeout: 60_000,
+    requestTimeout: 2 * 60_000,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   app.setErrorHandler((error: FastifyError, request, reply) => {

@@ -4,13 +4,14 @@
   import type { Session } from "../api.js";
   import { activateOnKey } from "./keyboard.js";
 
-  type Page = "ask" | "memory" | "sources";
+  type Page = "ask" | "memory" | "sources" | "ingest";
 
   const NAV: { id: Page; label: string }[] = [
     { id: "ask", label: "Ask" },
     { id: "memory", label: "Memory" },
     { id: "sources", label: "Sources" },
   ];
+  const ADMIN_NAV: { id: Page; label: string }[] = [{ id: "ingest", label: "Ingest" }];
 
   let {
     page,
@@ -32,6 +33,8 @@
     onLogin: (email: string, password: string) => Promise<void>;
     onLogout: () => void;
   } = $props();
+
+  const visibleNav = $derived(session.role === "admin" ? [...NAV, ...ADMIN_NAV] : NAV);
 
   let earlierOpen = $state(false);
   let mobileOpen = $state(false);
@@ -110,7 +113,7 @@
   <span class="date font-label">{today}</span>
   <span class="spacer"></span>
   <nav>
-    {#each NAV as item (item.id)}
+    {#each visibleNav as item (item.id)}
       <span
         class="nav-item font-label"
         class:on={item.id === page}
@@ -208,7 +211,7 @@
     {#if mobileOpen}
       <div class="menu">
         <div class="nav-group">
-          {#each NAV as item (item.id)}
+          {#each visibleNav as item (item.id)}
             <div
               class="menu-nav-item font-label"
               class:on={item.id === page}
