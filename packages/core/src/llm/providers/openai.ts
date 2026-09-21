@@ -3,7 +3,6 @@ import type { Config, ModelMessage, ToolCall } from "@sammer/shared";
 import type { ChatRequest, ChatResponse, EmbeddingClient, LlmClient } from "../client.js";
 
 const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
-const DEFAULT_TEMPERATURE = 0.2;
 
 /** Translate sammer's ModelMessage[] into the OpenAI chat message wire format. */
 function toOpenAIMessages(messages: ModelMessage[]): OpenAI.ChatCompletionMessageParam[] {
@@ -38,8 +37,8 @@ export class OpenAiLlmClient implements LlmClient, EmbeddingClient {
   async chat(req: ChatRequest): Promise<ChatResponse> {
     const completion = await this.client.chat.completions.create({
       model: this.cfg.chatModel ?? DEFAULT_CHAT_MODEL,
-      temperature: req.temperature ?? DEFAULT_TEMPERATURE,
       messages: toOpenAIMessages(req.messages),
+      ...(req.temperature === undefined ? {} : { temperature: req.temperature }),
       ...(req.maxTokens === undefined ? {} : { max_tokens: req.maxTokens }),
       tools: req.tools?.map((t) => ({
         type: "function" as const,
