@@ -13,6 +13,7 @@ import { openAuthDb, type GuestQuotaLimits } from "@sammer/core";
 import { authPlugin } from "./auth/plugin.js";
 import type { ServerDeps } from "./deps.js";
 import { pagesRoutes } from "./routes/pages.js";
+import { rawRoutes } from "./routes/raw.js";
 import { askRoute } from "./routes/ask.js";
 import { runRoute } from "./routes/run.js";
 import { ingestRoutes, MAX_UPLOAD_BYTES } from "./routes/ingest.js";
@@ -57,13 +58,14 @@ export async function buildServer(deps: ServerDeps, opts: ServerOptions = {}): P
   app.get("/health", async () => ({ status: "ok" }));
 
   await app.register(pagesRoutes, { prefix: "/pages", deps });
+  await app.register(rawRoutes, { prefix: "/raw", deps });
   await app.register(askRoute, { prefix: "/ask", deps, guestQuota: opts.guestQuota });
   await app.register(runRoute, { prefix: "/run", deps });
   await app.register(ingestRoutes, { prefix: "/ingest", deps });
   await app.register(searchRoute, { prefix: "/search", deps });
   await app.register(eventsRoute, { prefix: "/events", deps });
 
-  const API_PREFIXES = ["/health", "/auth", "/ask", "/run", "/ingest", "/search", "/pages", "/events"];
+  const API_PREFIXES = ["/health", "/auth", "/ask", "/run", "/ingest", "/search", "/pages", "/raw", "/events"];
 
   if (opts.webDist) {
     await app.register(fastifyStatic, { root: opts.webDist });

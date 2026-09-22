@@ -1,9 +1,21 @@
 import type { AgentEvent, Caller, Page, SearchHit, Source } from "@sammer/shared";
-import type { IngestResult, IngestSource } from "@sammer/core";
+import type { IngestResult, IngestSource, PageGraph, PageSummary, RawSourceContent } from "@sammer/core";
 
 export interface PageReader {
   listPages(caller?: Caller): Promise<string[]>;
+  listPageSummaries(caller?: Caller): Promise<PageSummary[]>;
   getPage(slug: string, caller?: Caller): Promise<Page | null>;
+  graph(caller?: Caller): Promise<PageGraph>;
+  readGenerated(name: "index" | "log"): Promise<string | null>;
+}
+
+export interface PageWriter {
+  savePageRaw(slug: string, raw: string): Promise<Page>;
+}
+
+export interface RawReader {
+  listRawSources(): Promise<Source[]>;
+  getRawSource(origin: string, id: string): Promise<RawSourceContent | null>;
 }
 
 export interface Asker {
@@ -31,6 +43,8 @@ export interface TelemetrySource {
 }
 
 export type ServerDeps = PageReader &
+  PageWriter &
+  RawReader &
   Asker &
   Runner &
   TextIngester &

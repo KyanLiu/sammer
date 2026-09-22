@@ -28,13 +28,13 @@ describe("static web serving", () => {
     await writeFile(join(dir, "index.html"), "<html>sammer</html>");
 
     const authDb = openAuthDb(":memory:");
-    const app = await buildServer(fakeDeps({ listPages: async () => ["cats"] }), {
+    const app = await buildServer(fakeDeps({ listPageSummaries: async () => [] }), {
       webDist: dir,
       auth: { db: authDb, cookieSecret: "test-secret" },
     });
     const cookie = await adminCookie(app, authDb);
 
     const res = await app.inject({ method: "GET", url: "/pages", headers: { cookie } });
-    expect(res.json()).toEqual(["cats"]);
+    expect(res.json()).toEqual([]);
   });
 });

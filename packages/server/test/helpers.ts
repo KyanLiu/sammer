@@ -1,4 +1,4 @@
-import type { Source, SourceMetadata } from "@sammer/shared";
+import type { Role, Source, SourceMetadata } from "@sammer/shared";
 import type { IngestResult } from "@sammer/core";
 import type { FastifyInstance } from "fastify";
 import type Database from "better-sqlite3";
@@ -28,7 +28,15 @@ export function fakeIngestResult(summary: string, overrides: Partial<IngestResul
 export function fakeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
   return {
     listPages: async () => [],
+    listPageSummaries: async () => [],
     getPage: async () => null,
+    graph: async () => ({ nodes: [], edges: [] }),
+    readGenerated: async () => null,
+    savePageRaw: async (slug) => {
+      throw new Error(`fakeDeps.savePageRaw is not overridden for "${slug}"`);
+    },
+    listRawSources: async () => [],
+    getRawSource: async () => null,
     ask: async () => "",
     run: async () => "",
     ingest: async () => fakeIngestResult(""),
@@ -40,11 +48,20 @@ export function fakeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
 }
 
 export async function adminCookie(app: FastifyInstance, authDb: Database.Database): Promise<string> {
-  await createUser(authDb, "admin@test.local", "test-password", "admin");
+  return sessionCookie(app, authDb, "admin");
+}
+
+export async function sessionCookie(
+  app: FastifyInstance,
+  authDb: Database.Database,
+  role: Role,
+): Promise<string> {
+  const email = `${role}@test.local`;
+  await createUser(authDb, email, "test-password", role);
   const res = await app.inject({
     method: "POST",
     url: "/auth/login",
-    payload: { email: "admin@test.local", password: "test-password" },
+    payload: { email, password: "test-password" },
   });
   const setCookie = res.headers["set-cookie"];
   const cookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
