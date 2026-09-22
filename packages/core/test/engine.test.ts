@@ -429,3 +429,104 @@ describe("Engine role scoping", () => {
     engine.close();
   });
 });
+
+describe("Engine page browser/editor", () => {
+  it("listPageSummaries reflects each page's role, category, and summary", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        {
+          tool: [
+            "write_wiki_page",
+            { title: "Cats", body: "Cats nap a lot.", category: "Animals", summary: "About cats" },
+          ],
+        },
+        { text: "Stored." },
+      ]),
+    });
+    await engine.ingest("cat stuff");
+
+    const summaries = await engine.listPageSummaries();
+    expect(summaries).toEqual([
+      expect.objectContaining({ slug: "cats", title: "Cats", category: "Animals", summary: "About cats" }),
+    ]);
+    expect(await engine.listPageSummaries({ role: "guest" })).toEqual([]);
+    engine.close();
+  });
+
+  it("graph reads fresh from disk and excludes edges to pages the caller can't see", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, { llm: scriptedLlm([{ text: "unused" }]) });
+    // Written directly, bypassing the agent — write_wiki_page has no role
+    // field, so every curator-created page defaults to admin; this test
+    // needs an explicit guest-role page to exercise the visibility split.
+    await engine.savePageRaw("cats", "---\ntitle: Cats\nrole: guest\n---\nCats like [[boxes]] and [[secrets]].");
+    // "boxes" is never created, "secrets" is admin-only — the graph should
+    // only ever show edges to nodes that actually exist and are visible.
+    await engine.savePageRaw("secrets", "---\ntitle: Secrets\nrole: admin\n---\nShh.");
+
+    const adminGraph = await engine.graph();
+    expect(adminGraph.nodes.map((n) => n.slug).sort()).toEqual(["cats", "secrets"]);
+    expect(adminGraph.edges).toEqual([{ src: "cats", dst: "secrets" }]);
+
+    const guestGraph = await engine.graph({ role: "guest" });
+    expect(guestGraph.nodes.map((n) => n.slug)).toEqual(["cats"]);
+    expect(guestGraph.edges).toEqual([]);
+    engine.close();
+  });
+
+  it("savePageRaw writes and indexes a page directly, without going through the agent", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, { llm: scriptedLlm([{ text: "unused" }]) });
+
+    const page = await engine.savePageRaw("cats", "---\ntitle: Cats\nrole: guest\n---\nCats nap.");
+
+    expect(page.metadata.title).toBe("Cats");
+    expect((await engine.getPage("cats"))?.body.trim()).toBe("Cats nap.");
+    expect((await engine.listPageSummaries()).map((p) => p.slug)).toContain("cats");
+    engine.close();
+  });
+
+  it("savePageRaw rejects invalid frontmatter with a descriptive error", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, { llm: scriptedLlm([{ text: "unused" }]) });
+
+    await expect(engine.savePageRaw("cats", "---\nrole: admin\n---\nno title")).rejects.toThrow(/title/i);
+    engine.close();
+  });
+
+  it("readGenerated returns index.md and log.md content after an ingest", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, {
+      llm: scriptedLlm([
+        {
+          tool: [
+            "write_wiki_page",
+            { title: "Cats", body: "Cats nap.", category: "Animals", summary: "About cats" },
+          ],
+        },
+        { text: "Stored." },
+      ]),
+    });
+    await engine.ingest("cat stuff");
+
+    expect(await engine.readGenerated("index")).toContain("[[cats]]");
+    expect(await engine.readGenerated("log")).not.toBeNull();
+    engine.close();
+  });
+
+  it("listRawSources and getRawSource expose the archived material an ingest created", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, { llm: scriptedLlm([{ text: "nothing to store" }]) });
+    await engine.ingest("a note about cats", { source: { origin: "api", kind: "text" } });
+
+    const sources = await engine.listRawSources();
+    expect(sources).toHaveLength(1);
+
+    const { origin, id } = sources[0]!.metadata;
+    const result = await engine.getRawSource(origin, id);
+    expect(result?.content).toBe("a note about cats");
+    expect(await engine.getRawSource(origin, "missing")).toBeNull();
+    engine.close();
+  });
+});

@@ -23,4 +23,19 @@ describe("listPageSlugs / listPageSummaries", () => {
     expect(listPageSlugs(db, roleRank("admin")).sort()).toEqual(["cats", "secrets"]);
     expect(listPageSummaries(db, roleRank("guest")).map((p) => p.slug)).toEqual(["cats"]);
   });
+
+  it("includes each page's role and updated timestamp", () => {
+    const db = openIndexDb(":memory:");
+    const indexer = new Indexer(db);
+    indexer.upsertPage(
+      parsePage(
+        "cats",
+        "---\ntitle: Cats\nslug: cats\ncategory: Animals\nrole: friend\nupdated: 2026-01-02T00:00:00.000Z\n---\nCats.",
+      ),
+    );
+
+    const [summary] = listPageSummaries(db, roleRank("admin"));
+    expect(summary?.role).toBe("friend");
+    expect(summary?.updated).toBe("2026-01-02T00:00:00.000Z");
+  });
 });

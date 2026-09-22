@@ -4,7 +4,12 @@ export {
   type RunOptions,
   type IngestOptions,
   type IngestResult,
+  type GraphNode,
+  type GraphEdge,
+  type PageGraph,
+  type RawSourceContent,
 } from "./engine.js";
+export { type PageSummary } from "./index/pages.js";
 export { OpenAiLlmClient, AnthropicLlmClient } from "./llm/providers/index.js";
 export { createLlmClient } from "./llm/factory.js";
 export type { LlmClient, EmbeddingClient, ChatRequest, ChatResponse } from "./llm/client.js";

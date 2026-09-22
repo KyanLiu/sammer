@@ -1,7 +1,9 @@
-import { DEFAULT_PAGE_ROLE, RESERVED_SLUGS, slugify, roleRank, type Page } from "@sammer/shared";
+import matter from "gray-matter";
+import { DEFAULT_PAGE_ROLE, RESERVED_SLUGS, ROLES, slugify, roleRank, type Page } from "@sammer/shared";
 import type { Indexer } from "../index/indexer.js";
 import type { WikiStore } from "./store.js";
 import { extractLinks } from "./links.js";
+import { parsePage } from "./format.js";
 
 export interface SavePageInput {
   title: string;
@@ -52,6 +54,37 @@ export class WikiService {
     await this.store.write(page);
     this.indexer.upsertPage(page);
     return page;
+  }
+
+  // bypasses and stores string in pages directly
+  async saveRaw(slug: string, raw: string): Promise<Page> {
+    if (slug !== slugify(slug)) {
+      throw new Error(`"${slug}" is not a valid slug.`);
+    }
+    if (RESERVED_SLUGS.has(slug)) {
+      throw new Error(`"${slug}" is a reserved, engine-generated file and cannot be edited directly.`);
+    }
+    const { data } = matter(raw);
+    if (typeof data.title !== "string" || !data.title.trim()) {
+      throw new Error(`frontmatter is invalid: "title" is required.`);
+    }
+    if (data.role !== undefined && !(ROLES as readonly string[]).includes(data.role)) {
+      throw new Error(`frontmatter is invalid: "role" must be one of ${ROLES.join(", ")}.`);
+    }
+
+    const existing = await this.store.read(slug);
+    const now = new Date().toISOString();
+    const page = parsePage(slug, raw, { created: existing?.metadata.created ?? now, updated: now });
+
+    await this.store.writeText(slug, raw);
+    this.indexer.upsertPage(page);
+    return page;
+  }
+
+  // The engine-maintained files (index.md, log.md) are generated markdown, not
+  // pages with frontmatter — read as raw text rather than through getPage.
+  async readText(slug: string): Promise<string | null> {
+    return this.store.readText(slug);
   }
 
   async getPage(slug: string, maxRank: number = roleRank("admin")): Promise<Page | null> {

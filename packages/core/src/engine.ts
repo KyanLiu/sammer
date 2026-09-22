@@ -12,7 +12,7 @@ import { extractText } from "./raw/extract.js";
 import { openIndexDb } from "./index/db.js";
 import { Indexer } from "./index/indexer.js";
 import { keywordSearch } from "./index/search.js";
-import { listPageSlugs } from "./index/pages.js";
+import { listPageSlugs, listPageSummaries, type PageSummary } from "./index/pages.js";
 import type { Tool } from "./agent/registry.js";
 import type { Agent } from "./agent/agent.js";
 import { buildToolIndex } from "./agent/tools/index.js";
@@ -44,6 +44,28 @@ export interface IngestResult {
   source: Source;
   skipped: boolean;
   curated: boolean;
+}
+
+export interface GraphNode {
+  slug: string;
+  title: string;
+  category: string;
+  role: string;
+}
+
+export interface GraphEdge {
+  src: string;
+  dst: string;
+}
+
+export interface PageGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface RawSourceContent {
+  source: Source;
+  content: string;
 }
 
 const DEFAULT_SOURCE: IngestSource = { origin: "api", kind: "text" };
@@ -157,8 +179,59 @@ export class Engine {
     return listPageSlugs(this.db, roleRank(caller.role));
   }
 
+  async listPageSummaries(caller: Caller = ADMIN_CALLER): Promise<PageSummary[]> {
+    return listPageSummaries(this.db, roleRank(caller.role));
+  }
+
   async getPage(slug: string, caller: Caller = ADMIN_CALLER): Promise<Page | null> {
     return this.wiki.getPage(slug, roleRank(caller.role));
+  }
+
+  // bypasses curation agent and writes data directly
+  async savePageRaw(slug: string, raw: string): Promise<Page> {
+    return this.wiki.saveRaw(slug, raw);
+  }
+
+  // index.md / log.md read
+  async readGenerated(name: "index" | "log"): Promise<string | null> {
+    return this.wiki.readText(name);
+  }
+
+  // manual graph generation based on role access
+  async graph(caller: Caller = ADMIN_CALLER): Promise<PageGraph> {
+    const maxRank = roleRank(caller.role);
+    const nodes: GraphNode[] = [];
+    const linksBySlug = new Map<string, string[]>();
+    for (const slug of await this.wiki.listPages()) {
+      const page = await this.wiki.getPage(slug, maxRank);
+      if (!page) continue;
+      nodes.push({
+        slug,
+        title: page.metadata.title,
+        category: page.metadata.category,
+        role: page.metadata.role,
+      });
+      linksBySlug.set(slug, page.links);
+    }
+    const visible = new Set(nodes.map((n) => n.slug));
+    const edges: GraphEdge[] = [];
+    for (const [src, links] of linksBySlug) {
+      for (const dst of links) {
+        if (visible.has(dst)) edges.push({ src, dst });
+      }
+    }
+    return { nodes, edges };
+  }
+
+  async listRawSources(): Promise<Source[]> {
+    return this.raw.list();
+  }
+
+  async getRawSource(origin: string, id: string): Promise<RawSourceContent | null> {
+    const source = await this.raw.read(origin, id);
+    if (!source) return null;
+    const content = await this.raw.readContent(source);
+    return { source, content };
   }
 
   async search(q: string, caller: Caller = ADMIN_CALLER): Promise<SearchHit[]> {
