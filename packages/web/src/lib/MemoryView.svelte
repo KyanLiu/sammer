@@ -5,11 +5,12 @@
   import { activateOnKey } from "./keyboard.js";
   import { listPageSummaries, getPageGraph, getGeneratedFile, type PageSummary, type PageGraph } from "../api.js";
 
-  // index.md/log.md have no per-page role filtering (they're built by walking
-  // every page), so unlike List/Graph this panel is admin-only — the caller
-  // decides based on session.role, since browsing the rest of Memory doesn't
-  // require one.
-  let { canViewGenerated = false }: { canViewGenerated?: boolean } = $props();
+  // List/Graph/opening a page are open to any caller (role-filtered per
+  // page/item, same as the rest of the app). Generated files and editing are
+  // both admin-only at the API — index.md/log.md have no per-page role
+  // filtering at all, and saving is gated server-side regardless — so one
+  // flag covers both here.
+  let { isAdmin = false }: { isAdmin?: boolean } = $props();
 
   type Tab = "list" | "graph";
 
@@ -95,7 +96,7 @@
 <div class="page">
   <div class="page-head">
     <h1 class="page-title font-display">Memory</h1>
-    {#if canViewGenerated}
+    {#if isAdmin}
       <span
         class="gen-link"
         role="button"
@@ -108,7 +109,7 @@
     {/if}
   </div>
 
-  {#if canViewGenerated && genOpen}
+  {#if isAdmin && genOpen}
     <FramedPanel style="padding:18px 24px">
       <div class="gen-tabs">
         <span
@@ -139,7 +140,7 @@
   {/if}
 
   {#if openSlug !== undefined}
-    <PageEditor slug={openSlug} onback={closeEditor} onsaved={onSaved} />
+    <PageEditor slug={openSlug} canEdit={isAdmin} onback={closeEditor} onsaved={onSaved} />
   {:else}
     <div class="tabs">
       <button type="button" class="tab font-label" class:on={tab === "list"} onclick={() => selectTab("list")}>
@@ -179,15 +180,17 @@
               {/each}
             </tbody>
           </table>
-          <div class="list-toolbar">
-            <span
-              class="new-btn"
-              role="button"
-              tabindex="0"
-              onclick={() => openEditor(null)}
-              onkeydown={activateOnKey(() => openEditor(null))}
-            >+ New page</span>
-          </div>
+          {#if isAdmin}
+            <div class="list-toolbar">
+              <span
+                class="new-btn"
+                role="button"
+                tabindex="0"
+                onclick={() => openEditor(null)}
+                onkeydown={activateOnKey(() => openEditor(null))}
+              >+ New page</span>
+            </div>
+          {/if}
         {/if}
       {:else if loadingGraph}
         <div class="status">Loading…</div>

@@ -160,7 +160,7 @@
           <div class="placeholder">Not authorized.</div>
         {/if}
       {:else if page === "memory"}
-        <MemoryView canViewGenerated={canWrite} />
+        <MemoryView isAdmin={canWrite} />
       {:else if page === "sources"}
         {#if canWrite}
           <SourcesView />

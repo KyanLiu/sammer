@@ -1,20 +1,26 @@
 <script lang="ts">
   import FramedPanel from "./FramedPanel.svelte";
   import { activateOnKey } from "./keyboard.js";
-  import { getPageRaw, savePageRaw } from "../api.js";
+  import { getPage, getPageRaw, savePageRaw, type Page } from "../api.js";
 
   const NEW_TEMPLATE = "---\ntitle: \ncategory: \nrole: friend\nsummary: \n---\n\n";
 
-  let { slug, onback, onsaved }: { slug: string | null; onback: () => void; onsaved: () => void } =
-    $props();
+  let {
+    slug,
+    canEdit = false,
+    onback,
+    onsaved,
+  }: { slug: string | null; canEdit?: boolean; onback: () => void; onsaved: () => void } = $props();
 
   let text = $state("");
   let newSlug = $state("");
+  let viewed = $state<Page | null>(null);
   let loading = $state(false);
   let saving = $state(false);
   let error = $state<string | null>(null);
 
   $effect(() => {
+    error = null;
     if (slug === null) {
       text = NEW_TEMPLATE;
       newSlug = "";
@@ -22,8 +28,12 @@
       return;
     }
     loading = true;
-    getPageRaw(slug)
-      .then((raw) => (text = raw))
+    // Editing needs the exact raw bytes (admin-only, may carry internal
+    // fields); viewing uses the same public, role-filtered read as everywhere
+    // else in the app, so a guest/friend can read a page without ever
+    // touching the admin-only raw endpoint.
+    const fetchPage = canEdit ? getPageRaw(slug).then((raw) => (text = raw)) : getPage(slug).then((p) => (viewed = p));
+    fetchPage
       .catch((err) => (error = err instanceof Error ? err.message : "Couldn't load this page."))
       .finally(() => (loading = false));
   });
@@ -53,11 +63,11 @@
       <span class="back" role="button" tabindex="0" onclick={onback} onkeydown={activateOnKey(onback)}
         >← Back</span
       >
-      <span class="title font-display">{slug ?? "New page"}</span>
+      <span class="title font-display">{canEdit ? (slug ?? "New page") : (viewed?.metadata.title ?? slug)}</span>
       {#if slug}<span class="slug-tag font-mono">{slug}.md</span>{/if}
     </div>
 
-    {#if slug === null}
+    {#if canEdit && slug === null}
       <label class="field">
         <span class="field-label font-label">Slug</span>
         <input type="text" bind:value={newSlug} placeholder="e.g. cloudflare-tunnel" />
@@ -70,16 +80,25 @@
 
     {#if loading}
       <div class="loading">Loading…</div>
-    {:else}
+    {:else if canEdit}
       <textarea class="raw" bind:value={text} spellcheck="false"></textarea>
+    {:else if viewed}
+      <div class="meta-line">
+        <span>{viewed.metadata.category}</span>
+        <span class="role-pill" class:admin={viewed.metadata.role === "admin"}>{viewed.metadata.role}</span>
+        <span>updated {viewed.metadata.updated}</span>
+      </div>
+      <pre class="body-view">{viewed.body}</pre>
     {/if}
 
-    <div class="actions">
-      <button type="button" class="btn primary" disabled={saving || loading} onclick={save}>
-        {saving ? "Saving…" : "Save"}
-      </button>
-      <button type="button" class="btn ghost" onclick={onback}>Cancel</button>
-    </div>
+    {#if canEdit}
+      <div class="actions">
+        <button type="button" class="btn primary" disabled={saving || loading} onclick={save}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" class="btn ghost" onclick={onback}>Cancel</button>
+      </div>
+    {/if}
   </div>
 </FramedPanel>
 
@@ -149,6 +168,37 @@
     font-size: var(--text-body-size);
     padding: 40px 0;
     text-align: center;
+  }
+
+  .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: var(--text-small-size);
+    color: var(--text-faint);
+  }
+  .role-pill {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    padding: 3px 8px;
+    color: var(--text-faint);
+    border: 1px solid var(--line-hairline);
+  }
+  .role-pill.admin {
+    color: var(--text-accent);
+    border-color: var(--text-accent);
+  }
+  .body-view {
+    margin: 0;
+    width: 100%;
+    min-height: 200px;
+    background: var(--surface-app);
+    border: var(--border-width) solid var(--line-hairline);
+    color: var(--text-strong);
+    font: 400 var(--text-mono-size) / 1.6 var(--font-mono);
+    padding: 16px 18px;
+    white-space: pre-wrap;
   }
 
   textarea.raw {

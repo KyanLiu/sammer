@@ -210,6 +210,10 @@ export async function getGeneratedFile(name: "index" | "log"): Promise<string> {
   return data.content;
 }
 
+export async function getPage(slug: string): Promise<Page> {
+  return getJson<Page>(`/pages/${encodeURIComponent(slug)}`);
+}
+
 export async function getPageRaw(slug: string): Promise<string> {
   const data = await getJson<{ slug: string; raw: string }>(`/pages/${encodeURIComponent(slug)}/raw`);
   return data.raw;
