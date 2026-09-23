@@ -187,6 +187,12 @@ export class Engine {
     return this.wiki.getPage(slug, roleRank(caller.role));
   }
 
+  async getPageRaw(slug: string, caller: Caller = ADMIN_CALLER): Promise<string | null> {
+    const page = await this.wiki.getPage(slug, roleRank(caller.role));
+    if (!page) return null;
+    return this.wiki.readText(slug);
+  }
+
   // bypasses curation agent and writes data directly
   async savePageRaw(slug: string, raw: string): Promise<Page> {
     return this.wiki.saveRaw(slug, raw);

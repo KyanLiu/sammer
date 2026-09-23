@@ -487,6 +487,18 @@ describe("Engine page browser/editor", () => {
     engine.close();
   });
 
+  it("getPageRaw returns the exact bytes saved, and withholds them from a caller above the page's role", async () => {
+    const cfg = await makeCfg();
+    const engine = await Engine.create(cfg, { llm: scriptedLlm([{ text: "unused" }]) });
+    const raw = "---\ntitle: Secrets\nrole: admin\n---\nShh.";
+    await engine.savePageRaw("secrets", raw);
+
+    expect(await engine.getPageRaw("secrets")).toBe(raw);
+    expect(await engine.getPageRaw("secrets", { role: "guest" })).toBeNull();
+    expect(await engine.getPageRaw("missing")).toBeNull();
+    engine.close();
+  });
+
   it("savePageRaw rejects invalid frontmatter with a descriptive error", async () => {
     const cfg = await makeCfg();
     const engine = await Engine.create(cfg, { llm: scriptedLlm([{ text: "unused" }]) });

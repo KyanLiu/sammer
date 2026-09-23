@@ -152,6 +152,44 @@ describe("GET /pages/:slug", () => {
   });
 });
 
+describe("GET /pages/:slug/raw", () => {
+  it("returns the raw text for an admin session", async () => {
+    const authDb = openAuthDb(":memory:");
+    const app = await buildServer(
+      fakeDeps({ getPageRaw: async (slug) => (slug === "cats" ? "---\ntitle: Cats\n---\nAbout cats." : null) }),
+      { auth: { db: authDb, cookieSecret: "test-secret" } },
+    );
+    const cookie = await adminCookie(app, authDb);
+
+    const res = await app.inject({ method: "GET", url: "/pages/cats/raw", headers: { cookie } });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ slug: "cats", raw: "---\ntitle: Cats\n---\nAbout cats." });
+  });
+
+  it("403s for a friend session", async () => {
+    const authDb = openAuthDb(":memory:");
+    const app = await buildServer(fakeDeps({ getPageRaw: async () => "raw" }), {
+      auth: { db: authDb, cookieSecret: "test-secret" },
+    });
+    const cookie = await sessionCookie(app, authDb, "friend");
+
+    const res = await app.inject({ method: "GET", url: "/pages/cats/raw", headers: { cookie } });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("404s when the page does not exist", async () => {
+    const authDb = openAuthDb(":memory:");
+    const app = await buildServer(fakeDeps(), { auth: { db: authDb, cookieSecret: "test-secret" } });
+    const cookie = await adminCookie(app, authDb);
+
+    const res = await app.inject({ method: "GET", url: "/pages/missing/raw", headers: { cookie } });
+
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe("PUT /pages/:slug", () => {
   const page = {
     metadata: {

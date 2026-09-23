@@ -5,6 +5,7 @@ export interface PageReader {
   listPages(caller?: Caller): Promise<string[]>;
   listPageSummaries(caller?: Caller): Promise<PageSummary[]>;
   getPage(slug: string, caller?: Caller): Promise<Page | null>;
+  getPageRaw(slug: string, caller?: Caller): Promise<string | null>;
   graph(caller?: Caller): Promise<PageGraph>;
   readGenerated(name: "index" | "log"): Promise<string | null>;
 }

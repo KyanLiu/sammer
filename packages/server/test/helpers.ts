@@ -30,6 +30,7 @@ export function fakeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
     listPages: async () => [],
     listPageSummaries: async () => [],
     getPage: async () => null,
+    getPageRaw: async () => null,
     graph: async () => ({ nodes: [], edges: [] }),
     readGenerated: async () => null,
     savePageRaw: async (slug) => {

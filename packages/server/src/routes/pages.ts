@@ -42,6 +42,19 @@ export const pagesRoutes: FastifyPluginAsync<{ deps: PageReader & PageWriter }> 
     return page;
   });
 
+  app.get<{ Params: { slug: string } }>(
+    "/:slug/raw",
+    { preHandler: requireRole("admin") },
+    async (request, reply) => {
+      const raw = await deps.getPageRaw(request.params.slug, request.caller);
+      if (raw === null) {
+        reply.code(404);
+        return { error: `no page "${request.params.slug}"` };
+      }
+      return { slug: request.params.slug, raw };
+    },
+  );
+
   app.put<{ Params: { slug: string }; Body: { raw?: string } }>(
     "/:slug",
     { preHandler: requireRole("admin") },
