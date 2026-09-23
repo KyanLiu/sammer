@@ -6,12 +6,18 @@
 
   type Page = "ask" | "memory" | "sources" | "ingest";
 
+  // Memory reads pages through the same per-page role filter GET /pages/:slug
+  // already uses, so it's as safe for a guest as any other page — no gate.
   const NAV: { id: Page; label: string }[] = [
     { id: "ask", label: "Ask" },
     { id: "memory", label: "Memory" },
-    { id: "sources", label: "Sources" },
   ];
-  const ADMIN_NAV: { id: Page; label: string }[] = [{ id: "ingest", label: "Ingest" }];
+  // Sources has no per-item role field (unlike pages), and Ingest needs write
+  // access — both are admin-only at the API, so the nav matches that exactly.
+  const ADMIN_NAV: { id: Page; label: string }[] = [
+    { id: "sources", label: "Sources" },
+    { id: "ingest", label: "Ingest" },
+  ];
 
   let {
     page,
@@ -34,7 +40,10 @@
     onLogout: () => void;
   } = $props();
 
-  const visibleNav = $derived(session.role === "admin" ? [...NAV, ...ADMIN_NAV] : NAV);
+  const visibleNav = $derived([
+    ...NAV,
+    ...(session.role === "admin" ? ADMIN_NAV : []),
+  ]);
 
   let earlierOpen = $state(false);
   let mobileOpen = $state(false);

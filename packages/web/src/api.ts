@@ -128,3 +128,111 @@ export async function ingestText(
   }
   return (await res.json()) as IngestResult;
 }
+
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${baseUrl()}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `request to ${path} failed`);
+  }
+  return (await res.json()) as T;
+}
+
+export interface PageSummary {
+  slug: string;
+  title: string;
+  category: string;
+  summary: string;
+  role: string;
+  updated: string;
+}
+
+export interface GraphNode {
+  slug: string;
+  title: string;
+  category: string;
+  role: string;
+}
+
+export interface GraphEdge {
+  src: string;
+  dst: string;
+}
+
+export interface PageGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface Page {
+  metadata: {
+    id: string;
+    title: string;
+    slug: string;
+    category: string;
+    tags: string[];
+    summary: string;
+    created: string;
+    updated: string;
+    role: string;
+  };
+  body: string;
+  links: string[];
+}
+
+export interface RawSource {
+  metadata: {
+    id: string;
+    title: string;
+    kind: string;
+    origin: string;
+    created: string;
+    updated: string;
+  };
+  fileName: string;
+}
+
+export interface RawSourceContent {
+  source: RawSource;
+  content: string;
+}
+
+export async function listPageSummaries(): Promise<PageSummary[]> {
+  return getJson<PageSummary[]>("/pages");
+}
+
+export async function getPageGraph(): Promise<PageGraph> {
+  return getJson<PageGraph>("/pages/graph");
+}
+
+export async function getGeneratedFile(name: "index" | "log"): Promise<string> {
+  const data = await getJson<{ name: string; content: string }>(`/pages/generated/${name}`);
+  return data.content;
+}
+
+export async function getPageRaw(slug: string): Promise<string> {
+  const data = await getJson<{ slug: string; raw: string }>(`/pages/${encodeURIComponent(slug)}/raw`);
+  return data.raw;
+}
+
+export async function savePageRaw(slug: string, raw: string): Promise<Page> {
+  const res = await fetch(`${baseUrl()}/pages/${encodeURIComponent(slug)}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ raw }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? "save failed");
+  }
+  return (await res.json()) as Page;
+}
+
+export async function listRawSources(): Promise<RawSource[]> {
+  return getJson<RawSource[]>("/raw");
+}
+
+export async function getRawSource(origin: string, id: string): Promise<RawSourceContent> {
+  return getJson<RawSourceContent>(`/raw/${encodeURIComponent(origin)}/${encodeURIComponent(id)}`);
+}

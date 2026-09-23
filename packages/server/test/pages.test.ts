@@ -58,12 +58,13 @@ describe("GET /pages", () => {
     expect(res.statusCode).toBe(200);
   });
 
-  it("401s without a session", async () => {
-    const app = await buildServer(fakeDeps());
+  it("200s for a guest (no session) too — each page's own role still filters", async () => {
+    const app = await buildServer(fakeDeps({ listPageSummaries: async () => [summary] }));
 
     const res = await app.inject({ method: "GET", url: "/pages" });
 
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual([summary]);
   });
 });
 
@@ -82,23 +83,26 @@ describe("GET /pages/graph", () => {
     expect(res.json()).toEqual(graph);
   });
 
-  it("401s without a session", async () => {
-    const app = await buildServer(fakeDeps());
+  it("200s for a guest (no session) too", async () => {
+    const app = await buildServer(fakeDeps({ graph: async () => ({ nodes: [], edges: [] }) }));
 
     const res = await app.inject({ method: "GET", url: "/pages/graph" });
 
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
   });
 });
 
 describe("GET /pages/generated/:name", () => {
-  it("returns the content of a known generated file", async () => {
+  // index.md/log.md are built by walking every page with no role filtering,
+  // so unlike list/graph/getPage this one has to be admin-only outright —
+  // it can't rely on per-page filtering to make a lower role safe.
+  it("returns the content of a known generated file for an admin session", async () => {
     const authDb = openAuthDb(":memory:");
     const app = await buildServer(
       fakeDeps({ readGenerated: async (name) => (name === "index" ? "# Index" : null) }),
       { auth: { db: authDb, cookieSecret: "test-secret" } },
     );
-    const cookie = await sessionCookie(app, authDb, "friend");
+    const cookie = await adminCookie(app, authDb);
 
     const res = await app.inject({ method: "GET", url: "/pages/generated/index", headers: { cookie } });
 
@@ -106,10 +110,22 @@ describe("GET /pages/generated/:name", () => {
     expect(res.json()).toEqual({ name: "index", content: "# Index" });
   });
 
+  it("403s for a friend session", async () => {
+    const authDb = openAuthDb(":memory:");
+    const app = await buildServer(fakeDeps({ readGenerated: async () => "# Index" }), {
+      auth: { db: authDb, cookieSecret: "test-secret" },
+    });
+    const cookie = await sessionCookie(app, authDb, "friend");
+
+    const res = await app.inject({ method: "GET", url: "/pages/generated/index", headers: { cookie } });
+
+    expect(res.statusCode).toBe(403);
+  });
+
   it("400s for a name other than index or log", async () => {
     const authDb = openAuthDb(":memory:");
     const app = await buildServer(fakeDeps(), { auth: { db: authDb, cookieSecret: "test-secret" } });
-    const cookie = await sessionCookie(app, authDb, "friend");
+    const cookie = await adminCookie(app, authDb);
 
     const res = await app.inject({ method: "GET", url: "/pages/generated/secrets", headers: { cookie } });
 

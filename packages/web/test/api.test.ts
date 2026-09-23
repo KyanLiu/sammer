@@ -1,5 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ask, ingestText, login, logout, me } from "../src/api.js";
+import {
+  ask,
+  getGeneratedFile,
+  getPageGraph,
+  getPageRaw,
+  getRawSource,
+  ingestText,
+  listPageSummaries,
+  listRawSources,
+  login,
+  logout,
+  me,
+  savePageRaw,
+} from "../src/api.js";
+
+function jsonResponse(body: unknown, ok = true) {
+  return { ok, status: ok ? 200 : 400, statusText: ok ? "OK" : "Bad Request", json: async () => body };
+}
 
 describe("baseUrl", () => {
   afterEach(() => {
@@ -260,5 +277,86 @@ describe("ingestText", () => {
     );
 
     await expect(ingestText("")).rejects.toThrow("text is required");
+  });
+});
+
+describe("Memory/Sources API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("listPageSummaries fetches /pages with credentials", async () => {
+    const summary = { slug: "cats", title: "Cats", category: "Animals", summary: "s", role: "guest", updated: "now" };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([summary]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listPageSummaries()).resolves.toEqual([summary]);
+    expect(fetchMock).toHaveBeenCalledWith("/api/pages", { credentials: "include" });
+  });
+
+  it("getPageGraph fetches /pages/graph", async () => {
+    const graph = { nodes: [], edges: [] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(graph)));
+
+    await expect(getPageGraph()).resolves.toEqual(graph);
+  });
+
+  it("getGeneratedFile returns just the content string", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ name: "index", content: "# Index" })));
+
+    await expect(getGeneratedFile("index")).resolves.toBe("# Index");
+  });
+
+  it("getPageRaw returns just the raw string", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ slug: "cats", raw: "---\ntitle: Cats\n---\n" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPageRaw("cats")).resolves.toBe("---\ntitle: Cats\n---\n");
+    expect(fetchMock).toHaveBeenCalledWith("/api/pages/cats/raw", { credentials: "include" });
+  });
+
+  it("a failing GET throws with the server's error message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ error: "no page \"missing\"" }, false)));
+
+    await expect(getPageRaw("missing")).rejects.toThrow('no page "missing"');
+  });
+
+  it("savePageRaw PUTs the raw text and returns the saved page", async () => {
+    const page = { metadata: { slug: "cats", title: "Cats" }, body: "b", links: [] };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(savePageRaw("cats", "---\ntitle: Cats\n---\nb")).resolves.toEqual(page);
+    expect(fetchMock).toHaveBeenCalledWith("/api/pages/cats", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ raw: "---\ntitle: Cats\n---\nb" }),
+    });
+  });
+
+  it("savePageRaw throws with the server's error message on a rejected save", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: 'frontmatter is invalid: "title" is required.' }, false)),
+    );
+
+    await expect(savePageRaw("cats", "no frontmatter")).rejects.toThrow(/title/);
+  });
+
+  it("listRawSources fetches /raw", async () => {
+    const source = { metadata: { id: "1", title: "note", kind: "text", origin: "api", created: "now", updated: "now" }, fileName: "1.txt" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([source])));
+
+    await expect(listRawSources()).resolves.toEqual([source]);
+  });
+
+  it("getRawSource fetches /raw/:origin/:id", async () => {
+    const result = { source: { metadata: {}, fileName: "1.txt" }, content: "hello" };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(result));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getRawSource("api", "1")).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith("/api/raw/api/1", { credentials: "include" });
   });
 });

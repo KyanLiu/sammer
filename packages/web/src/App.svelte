@@ -5,6 +5,8 @@
   import AnswerStage from "./lib/AnswerStage.svelte";
   import VoiceScreen from "./lib/VoiceScreen.svelte";
   import IngestView from "./lib/IngestView.svelte";
+  import MemoryView from "./lib/MemoryView.svelte";
+  import SourcesView from "./lib/SourcesView.svelte";
   import { history } from "./lib/stores/history.js";
   import { ask, login, logout, me, type Session } from "./api.js";
 
@@ -154,6 +156,14 @@
       {:else if page === "ingest"}
         {#if canWrite}
           <IngestView />
+        {:else}
+          <div class="placeholder">Not authorized.</div>
+        {/if}
+      {:else if page === "memory"}
+        <MemoryView canViewGenerated={canWrite} />
+      {:else if page === "sources"}
+        {#if canWrite}
+          <SourcesView />
         {:else}
           <div class="placeholder">Not authorized.</div>
         {/if}

@@ -5,19 +5,17 @@ import { requireRole } from "../guard.js";
 const GENERATED_NAMES = new Set(["index", "log"]);
 
 export const pagesRoutes: FastifyPluginAsync<{ deps: PageReader & PageWriter }> = async (app, { deps }) => {
-  // Any signed-in role can browse (each page's own role still filters what
-  // comes back) — only writing is admin-only.
-  app.get("/", { preHandler: requireRole("guest") }, async (request) => {
+  app.get("/", async (request) => {
     return await deps.listPageSummaries(request.caller);
   });
 
-  app.get("/graph", { preHandler: requireRole("guest") }, async (request) => {
+  app.get("/graph", async (request) => {
     return await deps.graph(request.caller);
   });
-
+  // admin-only view for index.md, log.md
   app.get<{ Params: { name: string } }>(
     "/generated/:name",
-    { preHandler: requireRole("guest") },
+    { preHandler: requireRole("admin") },
     async (request, reply) => {
       const { name } = request.params;
       if (!GENERATED_NAMES.has(name)) {
