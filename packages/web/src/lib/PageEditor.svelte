@@ -2,6 +2,7 @@
   import FramedPanel from "./FramedPanel.svelte";
   import { activateOnKey } from "./keyboard.js";
   import { formatDate } from "./format.js";
+  import { splitWikiLinks } from "./wikiLinks.js";
   import { getPage, getPageRaw, savePageRaw, type Page } from "../api.js";
 
   const NEW_TEMPLATE = "---\ntitle: \ncategory: \nrole: friend\nsummary: \n---\n\n";
@@ -11,7 +12,14 @@
     canEdit = false,
     onback,
     onsaved,
-  }: { slug: string | null; canEdit?: boolean; onback: () => void; onsaved: () => void } = $props();
+    onopen,
+  }: {
+    slug: string | null;
+    canEdit?: boolean;
+    onback: () => void;
+    onsaved: () => void;
+    onopen: (slug: string) => void;
+  } = $props();
 
   let text = $state("");
   let newSlug = $state("");
@@ -22,6 +30,7 @@
 
   $effect(() => {
     error = null;
+    viewed = null;
     if (slug === null) {
       text = NEW_TEMPLATE;
       newSlug = "";
@@ -89,7 +98,14 @@
         <span class="role-pill" class:admin={viewed.metadata.role === "admin"}>{viewed.metadata.role}</span>
         <span>updated {formatDate(viewed.metadata.updated)}</span>
       </div>
-      <pre class="body-view">{viewed.body}</pre>
+      <pre class="body-view">{#each splitWikiLinks(viewed.body) as seg}{#if seg.kind === "link"}<a
+              class="wiki-link"
+              href={`#${seg.slug}`}
+              onclick={(e) => {
+                e.preventDefault();
+                onopen(seg.slug);
+              }}>{seg.text}</a
+            >{:else}{seg.text}{/if}{/each}</pre>
     {/if}
 
     {#if canEdit}
@@ -200,6 +216,15 @@
     font: 400 var(--text-mono-size) / 1.6 var(--font-mono);
     padding: 16px 18px;
     white-space: pre-wrap;
+  }
+
+  .wiki-link {
+    color: var(--text-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .wiki-link:hover {
+    color: var(--text-strong);
   }
 
   textarea.raw {

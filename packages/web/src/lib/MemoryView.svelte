@@ -142,7 +142,7 @@
   {/if}
 
   {#if openSlug !== undefined}
-    <PageEditor slug={openSlug} canEdit={isAdmin} onback={closeEditor} onsaved={onSaved} />
+    <PageEditor slug={openSlug} canEdit={isAdmin} onback={closeEditor} onsaved={onSaved} onopen={openEditor} />
   {:else}
     <div class="tabs">
       <button type="button" class="tab font-label" class:on={tab === "list"} onclick={() => selectTab("list")}>
