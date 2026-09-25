@@ -36,10 +36,11 @@
   }
 </script>
 
+<div class="scroll-region">
 <div class="page">
   <h1 class="page-title font-display">Sources</h1>
 
-  <FramedPanel style="padding:0">
+  <FramedPanel style="padding:0;border:var(--border-width) solid var(--line-strong)">
     {#if loading}
       <div class="status">Loading…</div>
     {:else if listError}
@@ -76,8 +77,15 @@
     {/if}
   </FramedPanel>
 </div>
+</div>
 
 <style>
+  .scroll-region {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+  }
   .page {
     max-width: 920px;
     margin: 0 auto;

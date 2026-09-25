@@ -3,6 +3,7 @@
   import PageEditor from "./PageEditor.svelte";
   import GraphView from "./GraphView.svelte";
   import { activateOnKey } from "./keyboard.js";
+  import { formatDate } from "./format.js";
   import { listPageSummaries, getPageGraph, getGeneratedFile, type PageSummary, type PageGraph } from "../api.js";
 
   // List/Graph/opening a page are open to any caller (role-filtered per
@@ -93,6 +94,7 @@
   }
 </script>
 
+<div class="scroll-region">
 <div class="page">
   <div class="page-head">
     <h1 class="page-title font-display">Memory</h1>
@@ -110,7 +112,7 @@
   </div>
 
   {#if isAdmin && genOpen}
-    <FramedPanel style="padding:18px 24px">
+    <FramedPanel style="padding:18px 24px;border:var(--border-width) solid var(--line-strong)">
       <div class="gen-tabs">
         <span
           class="gen-tab font-label"
@@ -151,7 +153,7 @@
       </button>
     </div>
 
-    <FramedPanel style="padding:0">
+    <FramedPanel style="padding:0;border:var(--border-width) solid var(--line-strong)">
       {#if tab === "list"}
         {#if loadingList}
           <div class="status">Loading…</div>
@@ -170,10 +172,15 @@
                   onclick={() => openEditor(page.slug)}
                   onkeydown={(e) => (e.key === "Enter") && openEditor(page.slug)}
                 >
-                  <td class="title-cell">{page.title}</td>
-                  <td>{page.category}</td>
-                  <td><span class="role-pill" class:admin={page.role === "admin"}>{page.role}</span></td>
-                  <td class="updated-cell">{page.updated}</td>
+                  <td class="title-cell">
+                    <span class="title-row">
+                      <span>{page.title}</span>
+                      <span class="role-pill mobile-pill" class:admin={page.role === "admin"}>{page.role}</span>
+                    </span>
+                  </td>
+                  <td class="category-cell">{page.category}</td>
+                  <td class="role-cell"><span class="role-pill" class:admin={page.role === "admin"}>{page.role}</span></td>
+                  <td class="updated-cell">{formatDate(page.updated)}</td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="status">No pages yet.</td></tr>
@@ -202,8 +209,15 @@
     </FramedPanel>
   {/if}
 </div>
+</div>
 
 <style>
+  .scroll-region {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+  }
   .page {
     max-width: 920px;
     margin: 0 auto;
@@ -324,6 +338,14 @@
     color: var(--text-strong);
     font-weight: 500;
   }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .role-pill.mobile-pill {
+    display: none;
+  }
   .role-pill {
     display: inline-block;
     font-size: 12px;
@@ -370,5 +392,59 @@
   }
   .new-btn:hover {
     color: var(--text-strong);
+  }
+
+  /* Below this, the 4-column table has no room: collapse each row into a
+     stacked card (title+role, category, updated) instead of squeezing
+     columns or scrolling sideways. */
+  @media (max-width: 640px) {
+    thead {
+      display: none;
+    }
+    table,
+    tbody {
+      display: block;
+      width: 100%;
+    }
+    tbody tr {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      width: 100%;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line-hairline);
+    }
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+    tbody td {
+      display: block;
+      padding: 0;
+      border-bottom: none;
+    }
+    .title-cell {
+      flex: 1 0 100%;
+      font-size: 15px;
+      margin-bottom: 5px;
+    }
+    .title-row {
+      justify-content: space-between;
+    }
+    .category-cell {
+      font-size: 12.5px;
+      color: var(--text-faint);
+    }
+    .role-cell {
+      display: none;
+    }
+    .role-pill.mobile-pill {
+      display: inline-block;
+    }
+    .updated-cell {
+      margin-left: auto;
+      font-size: 12.5px;
+      color: var(--text-faint);
+      white-space: nowrap;
+    }
   }
 </style>

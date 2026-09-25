@@ -1,6 +1,7 @@
 <script lang="ts">
   import FramedPanel from "./FramedPanel.svelte";
   import { activateOnKey } from "./keyboard.js";
+  import { formatDate } from "./format.js";
   import { getPage, getPageRaw, savePageRaw, type Page } from "../api.js";
 
   const NEW_TEMPLATE = "---\ntitle: \ncategory: \nrole: friend\nsummary: \n---\n\n";
@@ -57,7 +58,7 @@
   }
 </script>
 
-<FramedPanel style="padding:0">
+<FramedPanel style="padding:0;border:var(--border-width) solid var(--line-strong)">
   <div class="editor">
     <div class="head">
       <span class="back" role="button" tabindex="0" onclick={onback} onkeydown={activateOnKey(onback)}
@@ -86,7 +87,7 @@
       <div class="meta-line">
         <span>{viewed.metadata.category}</span>
         <span class="role-pill" class:admin={viewed.metadata.role === "admin"}>{viewed.metadata.role}</span>
-        <span>updated {viewed.metadata.updated}</span>
+        <span>updated {formatDate(viewed.metadata.updated)}</span>
       </div>
       <pre class="body-view">{viewed.body}</pre>
     {/if}
