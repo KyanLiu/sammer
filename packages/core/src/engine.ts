@@ -51,6 +51,7 @@ export interface GraphNode {
   title: string;
   category: string;
   role: string;
+  summary: string;
 }
 
 export interface GraphEdge {
@@ -216,6 +217,7 @@ export class Engine {
         title: page.metadata.title,
         category: page.metadata.category,
         role: page.metadata.role,
+        summary: page.metadata.summary,
       });
       linksBySlug.set(slug, page.links);
     }

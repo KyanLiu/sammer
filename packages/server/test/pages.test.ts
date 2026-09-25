@@ -71,7 +71,7 @@ describe("GET /pages", () => {
 describe("GET /pages/graph", () => {
   it("returns the graph for a signed-in session", async () => {
     const authDb = openAuthDb(":memory:");
-    const graph = { nodes: [{ slug: "cats", title: "Cats", category: "Animals", role: "guest" }], edges: [] };
+    const graph = { nodes: [{ slug: "cats", title: "Cats", category: "Animals", role: "guest", summary: "About cats." }], edges: [] };
     const app = await buildServer(fakeDeps({ graph: async () => graph }), {
       auth: { db: authDb, cookieSecret: "test-secret" },
     });

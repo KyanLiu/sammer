@@ -460,7 +460,7 @@ describe("Engine page browser/editor", () => {
     // Written directly, bypassing the agent — write_wiki_page has no role
     // field, so every curator-created page defaults to admin; this test
     // needs an explicit guest-role page to exercise the visibility split.
-    await engine.savePageRaw("cats", "---\ntitle: Cats\nrole: guest\n---\nCats like [[boxes]] and [[secrets]].");
+    await engine.savePageRaw("cats", "---\ntitle: Cats\nrole: guest\nsummary: About cats.\n---\nCats like [[boxes]] and [[secrets]].");
     // "boxes" is never created, "secrets" is admin-only — the graph should
     // only ever show edges to nodes that actually exist and are visible.
     await engine.savePageRaw("secrets", "---\ntitle: Secrets\nrole: admin\n---\nShh.");
@@ -468,6 +468,7 @@ describe("Engine page browser/editor", () => {
     const adminGraph = await engine.graph();
     expect(adminGraph.nodes.map((n) => n.slug).sort()).toEqual(["cats", "secrets"]);
     expect(adminGraph.edges).toEqual([{ src: "cats", dst: "secrets" }]);
+    expect(adminGraph.nodes.find((n) => n.slug === "cats")?.summary).toBe("About cats.");
 
     const guestGraph = await engine.graph({ role: "guest" });
     expect(guestGraph.nodes.map((n) => n.slug)).toEqual(["cats"]);

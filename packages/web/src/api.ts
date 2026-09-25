@@ -152,6 +152,7 @@ export interface GraphNode {
   title: string;
   category: string;
   role: string;
+  summary: string;
 }
 
 export interface GraphEdge {
